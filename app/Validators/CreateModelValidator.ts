@@ -22,6 +22,7 @@ export default class CreateModelValidator {
       textures: schema.string(),
     }),
     textures_link: schema.string.optional(),
+    textures_link_size: schema.number(),
     thumbnail: schema.string(),
     images: schema.array.optional().members(schema.object().members({
       original: schema.string(),
@@ -64,6 +65,7 @@ export default class CreateModelValidator {
         ['v-ray', 'mental_ray', 'arnold', 'redshift', 'cycles', 'corona', 'unity', 'unreal_engine']
       ),
       renderer_version: schema.string(),
+      size: schema.number(),
     })),
     collections: schema.array.optional().members(schema.number()),
   })

@@ -101,6 +101,11 @@ export default class ModelsController {
           query.where('models_properties.uv', '=', payload.filters?.uv)
         }
       })
+      .whereHas('locales', (query) => {
+        if (payload.query) {
+          query.where('models_localizations', 'match', `${payload.query.toLowerCase()}`)
+        }
+      })
       .paginate(payload.page || 1, payload.count || 50)
 
     const serialized = models.serialize({
@@ -302,6 +307,7 @@ export default class ModelsController {
       matureContent: payload.mature_content,
       installPaths: payload.install_paths,
       texturesLink: payload.textures_link,
+      texturesLinkSize: payload.textures_link_size,
       thumbnail: payload.thumbnail,
       images: payload.images,
       licenses: payload.licenses,
@@ -334,6 +340,7 @@ export default class ModelsController {
       return {
         ...file,
         model_id: model.id,
+        size: file.size || 0,
       }
     })
 
@@ -360,6 +367,7 @@ export default class ModelsController {
     model.matureContent = payload.mature_content
     model.installPaths = payload.install_paths
     model.texturesLink = payload.textures_link || ''
+    model.texturesLinkSize = payload.textures_link_size
     model.thumbnail = payload.thumbnail
     model.images = payload.images
     model.preview = null
@@ -387,6 +395,7 @@ export default class ModelsController {
       return {
         ...file,
         model_id: model.id,
+        size: file.size || 0,
       }
     })
 

@@ -82,6 +82,9 @@ export default class Model extends BaseModel {
   public texturesLink: string
 
   @column()
+  public texturesLinkSize: number
+
+  @column()
   public thumbnail: string
 
   @column({

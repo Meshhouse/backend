@@ -24,4 +24,7 @@ export default class ModelFile extends BaseModel {
 
   @column()
   public rendererVersion: string
+
+  @column()
+  public size: number
 }

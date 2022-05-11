@@ -189,16 +189,35 @@ export default class ModelsController {
 
     const payload = await ctx.request.validate({ schema: validateSchema })
 
-    const user = await User.findByOrFail('email', payload.email)
-    if (payload.password) {
-      user.password = payload.password
+    if (await ctx.bouncer.allows('viewAdmin')) {
+      const user = await User.findByOrFail('email', payload.email)
+      if (payload.password) {
+        user.password = payload.password
+      }
+      user.name = payload.name
+      user.role = payload.role
+
+      await user.save()
+
+      return ctx.response.ok('')
+    } else {
+      const user = await ctx.auth.use('api')?.user
+      if (user) {
+        const dbUser = await User.findByOrFail('email', payload.email)
+        if (user?.id !== dbUser.id) {
+          return ctx.response.forbidden('Forbidden')
+        } else {
+          if (payload.password) {
+            dbUser.password = payload.password
+          }
+          dbUser.name = payload.name
+
+          await dbUser.save()
+
+          return ctx.response.ok('')
+        }
+      }
     }
-    user.name = payload.name
-    user.role = payload.role
-
-    await user.save()
-
-    return ctx.response.ok('')
   }
   /**
    * Deletes user

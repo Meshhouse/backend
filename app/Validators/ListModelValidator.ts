@@ -43,6 +43,7 @@ export default class ListModelValidator {
         ['generated', 'unwrap_uvw', 'udim', 'uvtile']
       ),
     }),
+    query: schema.string.optional(),
   })
 
   public messages = {}
