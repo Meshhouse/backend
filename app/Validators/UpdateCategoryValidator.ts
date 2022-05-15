@@ -9,6 +9,7 @@ export default class UpdateCategoryValidator {
     slug: schema.string(),
     icon: schema.string.optional(),
     parent_id: schema.number.optional(),
+    order: schema.number(),
     title_en: schema.string(),
     title_ru: schema.string(),
     description_en: schema.string.optional(),

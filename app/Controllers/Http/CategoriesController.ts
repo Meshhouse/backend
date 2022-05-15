@@ -1,6 +1,8 @@
 import { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
 import { schema, rules, validator } from '@ioc:Adonis/Core/Validator'
 import Category from 'App/Models/Category'
+import Block from 'App/Models/Block'
+import CategoryFilter from 'App/Models/CategoryFilter'
 import CreateCategoryValidator from 'App/Validators/CreateCategoryValidator'
 import UpdateCategoryValidator from 'App/Validators/UpdateCategoryValidator'
 import { CategoryContract, CategoryModel } from 'Contracts/Category'
@@ -92,6 +94,7 @@ export default class CategoriesController {
       .query()
       .preload('locales')
       .select()
+      .orderBy('order', 'asc')
 
     const array: CategoryModel[] = []
 
@@ -114,7 +117,25 @@ export default class CategoriesController {
         item.childrens = []
 
         array.push(item as CategoryModel)
+      }
+    })
+
+    categories.map((category) => {
+      const item = category.toJSON()
+
+      if (!language) {
+        item.title_en = category.locales.titleEn
+        item.title_ru = category.locales.titleRu
+        item.description_en = category.locales.descriptionEn
+        item.description_ru = category.locales.descriptionRu
       } else {
+        item.title = category.locales[`title${language[0].toUpperCase() + language.slice(1)}`]
+        item.description = category.locales[`description${language[0].toUpperCase() + language.slice(1)}`]
+      }
+
+      delete item.locales
+
+      if (item.parent_id !== null) {
         const idx = array.findIndex((val) => val.id === item.parent_id)
         if (idx !== -1) {
           (array[idx].childrens as CategoryModel[]).push(item as CategoryModel)
@@ -171,6 +192,7 @@ export default class CategoriesController {
       slug: payload.slug,
       icon: payload.icon ?? '',
       parentId: payload.parent_id ?? null,
+      order: payload.order,
     })
 
     await category.related('locales').create({
@@ -196,6 +218,7 @@ export default class CategoriesController {
     category.slug = payload.slug
     category.icon = payload.icon ?? ''
     category.parentId = payload.parent_id ?? null
+    category.order = payload.order
 
     await category.related('locales').updateOrCreate({ id: payload.id }, {
       id: payload.id,
@@ -229,5 +252,109 @@ export default class CategoriesController {
     await category.delete()
 
     return category.$isDeleted
+  }
+  /**
+   * Get list of category filters
+   * @param ctx context
+   * @returns category filters
+   */
+  public async listFilters (ctx: HttpContextContract) {
+    const headersValidateSchema = schema.create({
+      'x-meshhouse-language': schema.string.optional({}, [rules.language()]),
+    })
+
+    const payload = ctx.request.params()
+    const headers = await validator.validate({
+      schema: headersValidateSchema,
+      data: ctx.request.headers(),
+    })
+
+    const language = headers['x-meshhouse-language'] ?? null
+
+    const block = await Block
+      .query()
+      .select('*')
+      .where({ type: 'category_filters' })
+      .firstOrFail()
+
+    let categoryFilters: any[] = []
+
+    categoryFilters.push(...block.content.sort((a, b) => a.order - b.order).map((item) => {
+      if (language) {
+        item.title = item.locales[`title_${language}`]
+        delete item.title_en
+        delete item.title_ru
+      }
+
+      if (item.type !== 'range') {
+        item.values = item.values.map((val) => {
+          if (language) {
+            val.title = val[`title_${language}`]
+
+            delete val.title_en
+            delete val.title_ru
+          }
+
+          return val
+        })
+      } else {
+        item.values = item.values.map((val) => {
+          return {
+            min: Number(val.min),
+            max: Number(val.max),
+          }
+        })
+      }
+
+      return item
+    }))
+
+    if (payload.id) {
+      const filters = await CategoryFilter
+        .query()
+        .preload('locales')
+        .select('*')
+        .where('category', payload.id)
+
+      categoryFilters.push(...filters.sort((a, b) => a.order - b.order).map((filter) => {
+        const item = filter.toJSON()
+
+        if (!language) {
+          item.title_en = item.locales.title_en
+          item.title_ru = item.locales.title_ru
+        } else {
+          item.title = item.locales[`title_${language}`]
+        }
+
+        delete item.locales
+        delete item.category
+        delete item.created_at
+        delete item.updated_at
+
+        if (item.type !== 'range') {
+          item.values = item.values.map((val) => {
+            if (language) {
+              val.title = val[`title_${language}`]
+
+              delete val.title_en
+              delete val.title_ru
+            }
+
+            return val
+          })
+        } else {
+          item.values = item.values.map((val) => {
+            return {
+              min: Number(val.min),
+              max: Number(val.max),
+            }
+          })
+        }
+
+        return item
+      }))
+    }
+
+    return categoryFilters
   }
 }

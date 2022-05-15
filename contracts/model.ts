@@ -27,6 +27,7 @@ export interface ModelSimple {
   title_ru?: string
   title?: string
   mature_content: boolean,
+  available_formats: string[],
   thumbnail: string,
   category: string,
   status?: number,

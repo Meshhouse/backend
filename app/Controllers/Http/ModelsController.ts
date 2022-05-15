@@ -1,7 +1,10 @@
 import { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
 import { schema, rules, validator } from '@ioc:Adonis/Core/Validator'
+import { string } from '@ioc:Adonis/Core/Helpers'
 import Database from '@ioc:Adonis/Lucid/Database'
 import Model from 'App/Models/Model'
+import CategoryFilter from 'App/Models/CategoryFilter'
+import ModelCategoryFilter from 'App/Models/ModelCategoryFilter'
 import CreateModelValidator from 'App/Validators/CreateModelValidator'
 import UpdateModelValidator from 'App/Validators/UpdateModelValidator'
 import ListModelValidator from 'App/Validators/ListModelValidator'
@@ -33,6 +36,8 @@ export default class ModelsController {
       isAdminPanel = true
     }
 
+    let escapedQuery = string.escapeHTML(String(payload.query).toLowerCase()).replace(/[^a-zA-Z0-9_ ]+/gmu, '')
+
     const models = await Model
       .query()
       .preload('category')
@@ -41,6 +46,7 @@ export default class ModelsController {
       .preload('locales', (localesQuery) => {
         localesQuery.select('rowid', '*')
       })
+      .preload('filters')
       .select('id', 'slug', 'status', 'mature_content', 'thumbnail', 'created_at', 'updated_at')
       .where((query) => {
         if (!isAdminPanel && (matureContent === false || matureContent === null)) {
@@ -103,8 +109,28 @@ export default class ModelsController {
       })
       .whereHas('locales', (query) => {
         if (payload.query) {
-          query.where('models_localizations', 'match', `${payload.query.toLowerCase()}`)
+          query.where('models_localizations', 'match', escapedQuery)
         }
+      })
+      .whereHas('category', (query) => {
+        if (Array.isArray(payload.categories) && payload.categories.length > 0) {
+          query.whereIn('category_model.category_id', payload.categories)
+        }
+      })
+      .if(payload.custom_filters && JSON.stringify(payload.custom_filters) !== '{}', (query) => {
+        query.whereHas('filters', (query) => {
+          for (const key in payload.custom_filters) {
+            if (typeof payload.custom_filters[key][0] === 'string') {
+              query
+                .where('model_category_filters.filter_id', key)
+                .andWhereIn('model_category_filters.value', payload.custom_filters[key])
+            } else {
+              query
+                .where('model_category_filters.filter_id', key)
+                .andWhereBetween('model_category_filters.value', payload.custom_filters[key])
+            }
+          }
+        })
       })
       .paginate(payload.page || 1, payload.count || 50)
 
@@ -132,9 +158,18 @@ export default class ModelsController {
 
         item.category = item.category[0].slug
 
+        item.available_formats = []
+
+        item.files.map((file) => {
+          if (!item.available_formats.includes(file.program)) {
+            item.available_formats.push(file.program)
+          }
+        })
+
         delete item.locales
         delete item.properties
         delete item.files
+        delete item.filters
 
         if (!isAdminPanel) {
           delete item.status
@@ -185,11 +220,17 @@ export default class ModelsController {
       .preload('locales', (localesQuery) => {
         localesQuery.select('rowid', '*')
       })
+      .preload('filters')
       .preload('properties')
       .preload('files')
       .select('*')
       .where({ slug: payload.params.slug })
       .firstOrFail()
+
+    const categoryFilters = await CategoryFilter
+      .query()
+      .select('id', 'category', 'key')
+      .where('category', model.category[0].id)
 
     const serialized = model.serialize()
 
@@ -287,6 +328,14 @@ export default class ModelsController {
       serialized.category.description = serialized.category.locales[`description_${language}`]
     }
 
+    serialized.filters = {}
+
+    for (const filter of categoryFilters) {
+      const modelValue = model.filters.find((val) => val.filterId === filter.id)
+
+      serialized.filters[filter.key] = modelValue ? modelValue.value : ''
+    }
+
     delete serialized.category.locales
 
     return serialized as ModelFull
@@ -359,6 +408,10 @@ export default class ModelsController {
     await ctx.bouncer.authorize('viewAdmin')
 
     const model = await Model.findOrFail(payload.id)
+    const categoryFilters = await CategoryFilter
+      .query()
+      .select('id', 'category', 'key')
+      .where('category', payload.category)
 
     model.slug = payload.slug
     model.status = payload.status
@@ -399,6 +452,16 @@ export default class ModelsController {
       }
     })
 
+    for (const filter of categoryFilters) {
+      const payloadFilter = payload.filters[filter.key]
+
+      await ModelCategoryFilter.updateOrCreate({ modelId: payload.id, filterId: filter.id }, {
+        modelId: payload.id,
+        filterId: filter.id,
+        value: payloadFilter,
+      })
+    }
+
     await model.related('files').updateOrCreateMany(files, 'url')
     await model.related('category').sync([payload.category])
     await model.related('collections').sync(payload.collections || [])
@@ -428,6 +491,11 @@ export default class ModelsController {
       .query()
       .delete()
       .where('id', payload.id)
+
+    await ModelCategoryFilter
+      .query()
+      .delete()
+      .where('model_id', payload.id)
 
     await model.delete()
 

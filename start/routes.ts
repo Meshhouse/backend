@@ -5,7 +5,8 @@ Route.group(() => {
   Route.group(() => {
     Route.get('/categories', 'CategoriesController.list')
     Route.get('/category-tree', 'CategoriesController.tree')
-    Route.get('/categories/:id', 'CategoriesController.single')
+    Route.get('/categories/:id', 'CategoriesController.single').where('id', /^[0-9]+$/)
+    Route.get('/categories/:id/filters', 'CategoriesController.listFilters')
 
     Route.post('/models', 'ModelsController.list')
     Route.post('/models/collection', 'ModelsController.listCollection')
@@ -29,7 +30,8 @@ Route.group(() => {
   Route.group(() => {
     Route.get('/categories', 'CategoriesController.list')
     Route.get('/category-tree', 'CategoriesController.tree')
-    Route.get('/categories/:id', 'CategoriesController.single')
+    Route.get('/categories/:id', 'CategoriesController.single').where('id', /^[0-9]+$/)
+    Route.get('/categories/:id/filters', 'CategoriesController.listFilters')
 
     Route.post('/models', 'ModelsController.list')
     Route.post('/models/collection', 'ModelsController.listCollection')
@@ -42,7 +44,7 @@ Route.group(() => {
     Route.get('/posts/:slug', 'BlogsController.single')
 
     Route.get('/licenses', 'LicensesController.list')
-    Route.get('/licenses/:id', 'LicensesController.single')
+    Route.get('/licenses/:id', 'LicensesController.single').where('id', /^[0-9]+$/)
 
     Route.get('/autocomplete', 'SearchesController.autocomplete')
 
@@ -62,6 +64,11 @@ Route.group(() => {
     Route.put('/categories', 'CategoriesController.create')
     Route.patch('/categories', 'CategoriesController.update')
     Route.delete('/categories', 'CategoriesController.delete')
+
+    Route.get('/categories/filters', 'CategoryFiltersController.list')
+    Route.put('/categories/filters', 'CategoryFiltersController.create')
+    Route.patch('/categories/filters', 'CategoryFiltersController.update')
+    Route.delete('/categories/filters', 'CategoryFiltersController.delete')
 
     Route.put('/models', 'ModelsController.create')
     Route.patch('/models', 'ModelsController.update')
@@ -95,7 +102,7 @@ Route.group(() => {
     Route.post('/logout', 'AuthController.logout')
 
     Route.get('/users', 'AuthController.list')
-    Route.get('/users/:id', 'AuthController.single')
+    Route.get('/users/:id', 'AuthController.single').where('id', /^[0-9]+$/)
     Route.put('/users', 'AuthController.create')
     Route.patch('/users', 'AuthController.update')
     Route.delete('/users', 'AuthController.deleteUser')

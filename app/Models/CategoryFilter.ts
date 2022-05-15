@@ -1,19 +1,46 @@
 import { DateTime } from 'luxon'
 import { BaseModel, column, hasOne, HasOne } from '@ioc:Adonis/Lucid/Orm'
 import CategoryFilterLocalization from 'App/Models/CategoryFilterLocalization'
+import type {
+  CategoryFilterType,
+} from 'Contracts/category'
 
 export default class CategoryFilter extends BaseModel {
   @column({ isPrimary: true })
   public id: number
 
   @column()
-  public categoryId: number
+  public category: number
 
   @column()
-  public type: string
+  public order: number
 
   @column()
-  public enums: unknown[]
+  public key: string
+
+  @column()
+  public type: CategoryFilterType
+
+  @column()
+  public querystringAlias: string
+
+  @column()
+  public valueDelimeter: string | null
+
+  @column({
+    prepare: (value: unknown[]) => {
+      return JSON.stringify(value)
+    },
+    consume: (value: string) => {
+      try {
+        const json = JSON.parse(value)
+        return json
+      } catch (error) {
+        return value
+      }
+    },
+  })
+  public values: unknown[]
 
   @hasOne(() => CategoryFilterLocalization, {
     foreignKey: 'id',

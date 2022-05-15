@@ -44,6 +44,8 @@ export default class ListModelValidator {
       ),
     }),
     query: schema.string.optional(),
+    custom_filters: schema.object.optional().anyMembers(),
+    categories: schema.array.optional().members(schema.number()),
   })
 
   public messages = {}

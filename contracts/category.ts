@@ -1,5 +1,7 @@
 import { DateTime } from 'luxon'
 
+export type CategoryFilterType = 'radio' | 'checkbox' | 'checkbox-color' | 'range'
+
 export interface CategoryModel {
   id: number,
   slug: string,
@@ -19,4 +21,19 @@ export interface CategoryModel {
 export interface CategoryContract {
   pagination: PaginationContract,
   items: CategoryModel[]
+}
+
+export interface CategoryFilter {
+  id: number,
+  category: number | null,
+  order: number,
+  key: string,
+  localized: boolean,
+  type: CategoryFilterType,
+  querystring_alias: string,
+  value_delimeter: string | null,
+  values: any[],
+  title?: string,
+  title_en?: string,
+  title_ru?: string,
 }

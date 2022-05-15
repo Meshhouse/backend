@@ -1,18 +1,18 @@
 import { schema } from '@ioc:Adonis/Core/Validator'
 import { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
 
-export default class CreateCategoryValidator {
+export default class UpdateCategoryFilterValidator {
   constructor (protected ctx: HttpContextContract) {}
 
   public schema = schema.create({
-    slug: schema.string(),
-    icon: schema.string.optional(),
-    parent_id: schema.number.optional(),
+    id: schema.number(),
     order: schema.number(),
+    key: schema.string(),
+    querystring_alias: schema.string(),
+    value_delimeter: schema.string.optional(),
+    values: schema.array().members(schema.object().anyMembers()),
     title_en: schema.string(),
     title_ru: schema.string(),
-    description_en: schema.string.optional(),
-    description_ru: schema.string.optional(),
   })
 
   public messages = {}

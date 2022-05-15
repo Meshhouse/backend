@@ -16,6 +16,9 @@ export default class Category extends BaseModel {
   @column()
   public parentId: number | null
 
+  @column()
+  public order: number
+
   @hasOne(() => CategoryLocalization, {
     foreignKey: 'id',
   })

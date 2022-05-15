@@ -1,6 +1,5 @@
-import { BaseModel, belongsTo, column, BelongsTo } from '@ioc:Adonis/Lucid/Orm'
-import Model from 'App/Models/Model'
-import CategoryFilter from 'App/Models/CategoryFilter'
+import { DateTime } from 'luxon'
+import { BaseModel, column } from '@ioc:Adonis/Lucid/Orm'
 
 export default class ModelCategoryFilter extends BaseModel {
   @column({ isPrimary: true })
@@ -15,15 +14,9 @@ export default class ModelCategoryFilter extends BaseModel {
   @column()
   public value: unknown
 
-  @belongsTo(() => Model, {
-    localKey: 'modelId',
-    foreignKey: 'id',
-  })
-  public model: BelongsTo<typeof Model>
+  @column.dateTime({ autoCreate: true })
+  public createdAt: DateTime
 
-  @belongsTo(() => CategoryFilter, {
-    localKey: 'modelId',
-    foreignKey: 'id',
-  })
-  public categoryFilter: BelongsTo<typeof CategoryFilter>
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  public updatedAt: DateTime
 }

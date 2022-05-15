@@ -70,6 +70,7 @@ export default class UpdateModelValidator {
       size: schema.number(),
     })),
     collections: schema.array.optional().members(schema.number()),
+    filters: schema.object().anyMembers(),
   })
 
   public messages = {}

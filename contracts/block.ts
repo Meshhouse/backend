@@ -1,8 +1,13 @@
+import type {
+  CategoryFilterType,
+} from 'Contracts/category'
+
 export type BlockType = 'integrations' |
 'featured_categories' |
 'courtesy_slider' |
 'site_supporters' |
-'site_patrons'
+'site_patrons' |
+'category_filters'
 
 export const BlockTypeEnums: BlockType[] = [
   'courtesy_slider',
@@ -10,19 +15,22 @@ export const BlockTypeEnums: BlockType[] = [
   'integrations',
   'site_supporters',
   'site_patrons',
+  'category_filters',
 ]
 
 export type BlockPayloadContent = Integration[] |
 FeaturedCategory[] |
 IndexPageCourtesySlide[] |
 SiteSupporter[] |
-SitePatron[]
+SitePatron[] |
+SharedCategoryFilter[]
 
 type BlockParams = Integration |
 FeaturedCategory |
 IndexPageCourtesySlide |
 SiteSupporter |
-SitePatron
+SitePatron |
+SharedCategoryFilter
 
 export interface Integration {
   title: string,
@@ -65,6 +73,17 @@ export interface SitePatron {
   level: string,
 }
 
+export interface SharedCategoryFilter {
+  order: number,
+  key: string,
+  type: CategoryFilterType,
+  querystring_alias: string,
+  value_delimeter: string | null,
+  values: any[],
+  title_en: string,
+  title_ru: string,
+}
+
 export function isIntegration (block: BlockParams): block is Integration {
   return (block as Integration).params !== undefined
 }
@@ -84,4 +103,8 @@ export function isSiteSupporter (block: BlockParams): block is SiteSupporter {
 
 export function isSitePatron (block: BlockParams): block is SitePatron {
   return (block as SitePatron).level !== undefined
+}
+
+export function isSharedCategoryFilter (block: BlockParams): block is SharedCategoryFilter {
+  return (block as SharedCategoryFilter).querystring_alias !== undefined
 }
