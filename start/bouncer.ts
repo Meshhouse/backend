@@ -47,6 +47,21 @@ export const { actions } = Bouncer
 
     return Bouncer.deny('Not found', 404)
   })
+  .define('subscriberAction', (
+    user: User
+  ) => {
+    console.log(user)
+
+    if (user.role === 'admin') {
+      return true
+    }
+
+    if (user.role === 'subscriber' && user.$hasRelated('subscriptions')) {
+      return true
+    }
+
+    return Bouncer.deny('Not allowed', 401)
+  })
 
 /*
 |--------------------------------------------------------------------------

@@ -1,51 +1,27 @@
 import { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
-import { schema, rules, validator } from '@ioc:Adonis/Core/Validator'
-import License from 'App/Models/License'
-import CreateLicenseValidator from 'App/Validators/CreateLicenseValidator'
-import UpdateLicenseValidator from 'App/Validators/UpdateLicenseValidator'
+import { inject } from '@adonisjs/fold'
+import LicensesRepository from 'App/Repositories/LicensesRepository'
+import LicensesService from 'App/Services/LicensesService'
+import CreateLicenseValidator from 'App/Validators/License/CreateLicenseValidator'
+import UpdateLicenseValidator from 'App/Validators/License/UpdateLicenseValidator'
+import PathIdValidator from 'App/Validators/Shared/PathIdValidator'
+import BodyIdValidator from 'App/Validators/Shared/BodyIdValidator'
 
-import { LicenseInterface } from 'Contracts/license'
-
+@inject()
 export default class LicensesController {
+  constructor (
+    public LicensesRepository: LicensesRepository,
+    public LicensesService: LicensesService
+  ) {}
+
   /**
    * Get licenses
    * @param ctx context
    * @returns licenses
    */
-  public async list (ctx: HttpContextContract): Promise<LicenseInterface[]> {
-    const headersValidateSchema = schema.create({
-      'x-meshhouse-language': schema.string.optional({}, [rules.language()]),
-    })
-
-    const headers = await validator.validate({
-      schema: headersValidateSchema,
-      data: ctx.request.headers(),
-    })
-
-    const language = headers['x-meshhouse-language'] ?? null
-
-    const licenses = await License
-      .query()
-      .preload('locales')
-      .select()
-
-    return licenses.map((license) => {
-      const item = license.toJSON()
-
-      if (!language) {
-        item.title_en = item.locales.title_en
-        item.title_ru = item.locales.title_ru
-        item.description_en = item.locales.description_en
-        item.description_ru = item.locales.description_ru
-      } else {
-        item.title = item.locales[`title_${language}`]
-        item.description = item.locales[`description_${language}`]
-      }
-
-      delete item.locales
-
-      return item as LicenseInterface
-    })
+  public async list (ctx: HttpContextContract) {
+    const licenses = await this.LicensesRepository.get()
+    return this.LicensesService.prepareLicenses(licenses, ctx.xLanguage)
   }
   /**
    * Get single category
@@ -53,33 +29,10 @@ export default class LicensesController {
    * @returns category or error
    */
   public async single (ctx: HttpContextContract) {
-    const validateSchema = schema.create({
-      params: schema
-        .object()
-        .members({
-          id: schema.number(),
-        }),
-    })
+    const payload = await ctx.request.validate(PathIdValidator)
 
-    const payload = await ctx.request.validate({ schema: validateSchema })
-
-    const license = await License
-      .query()
-      .preload('locales')
-      .select('*')
-      .where({ id: payload.params.id })
-      .firstOrFail()
-
-    const item = license.toJSON()
-
-    item.title_en = license.locales.titleEn
-    item.title_ru = license.locales.titleRu
-    item.description_en = license.locales.descriptionEn
-    item.description_ru = license.locales.descriptionRu
-
-    delete item.locales
-
-    return item
+    const license = await this.LicensesRepository.getById(payload.params.id)
+    return this.LicensesService.prepareSingleLicense(license)
   }
   /**
    * Create license
@@ -90,20 +43,7 @@ export default class LicensesController {
     const payload = await ctx.request.validate(CreateLicenseValidator)
     await ctx.bouncer.authorize('viewAdmin')
 
-    const license = await License.create({
-      access: payload.access,
-      matureContent: payload.mature_content,
-      copyrightContent: payload.copyright_content,
-    })
-
-    await license.related('locales').create({
-      titleRu: payload.title_ru,
-      titleEn: payload.title_en,
-      descriptionEn: payload.description_en,
-      descriptionRu: payload.description_ru,
-    })
-
-    return license.id
+    return await this.LicensesService.create(payload)
   }
   /**
    * Update license
@@ -114,21 +54,8 @@ export default class LicensesController {
     const payload = await ctx.request.validate(UpdateLicenseValidator)
     await ctx.bouncer.authorize('viewAdmin')
 
-    const license = await License.findOrFail(payload.id)
-
-    license.access = payload.access
-    license.matureContent = payload.mature_content
-    license.copyrightContent = payload.copyright_content
-
-    await license.related('locales').updateOrCreate({ id: payload.id }, {
-      id: payload.id,
-      titleRu: payload.title_ru,
-      titleEn: payload.title_en,
-      descriptionEn: payload.description_en || '',
-      descriptionRu: payload.description_ru || '',
-    })
-
-    return license.id
+    const license = await this.LicensesRepository.getById(payload.id)
+    return await this.LicensesService.update(license, payload)
   }
   /**
    * Delete license
@@ -136,21 +63,10 @@ export default class LicensesController {
    * @returns is deleted
    */
   public async delete (ctx: HttpContextContract) {
-    const validateSchema = schema.create({
-      id: schema.number(),
-    })
-
-    const payload = await ctx.request.validate({ schema: validateSchema })
+    const payload = await ctx.request.validate(BodyIdValidator)
     await ctx.bouncer.authorize('viewAdmin')
 
-    const license = await License.findOrFail(payload.id)
-    await license.related('locales')
-      .query()
-      .delete()
-      .where('id', payload.id)
-
-    await license.delete()
-
-    return license.$isDeleted
+    const license = await this.LicensesRepository.getById(payload.id)
+    return await this.LicensesService.delete(license)
   }
 }

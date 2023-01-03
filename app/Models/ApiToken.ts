@@ -19,6 +19,9 @@ export default class ApiToken extends BaseModel {
   @column({ serializeAs: null })
   public token: string
 
+  @column()
+  public limitPerHour: number
+
   @column.dateTime({ autoCreate: true })
   public createdAt: DateTime
 

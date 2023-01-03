@@ -1,5 +1,5 @@
 import { BaseModel, column } from '@ioc:Adonis/Lucid/Orm'
-import type { ModelFormat, ModelRenderer } from 'Contracts/Model'
+import type { ModelFormat, ModelRenderer } from '@meshhouse/types'
 
 export default class ModelFile extends BaseModel {
   public static table = 'model_files'

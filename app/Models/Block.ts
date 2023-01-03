@@ -1,7 +1,9 @@
 import { DateTime } from 'luxon'
 import { BaseModel, column } from '@ioc:Adonis/Lucid/Orm'
-import { BlockPayloadContent} from 'Contracts/Block'
-import type { BlockType } from 'Contracts/Block'
+import type {
+  BlockType,
+  BlockPayloadContent,
+} from '@meshhouse/types'
 
 export default class Block extends BaseModel {
   @column({ isPrimary: true })

@@ -22,7 +22,19 @@ Route.group(() => {
 
     Route.get('/autocomplete', 'SearchesController.autocomplete')
   }).prefix('/v1')
-}).prefix('api').middleware('auth:api')
+}).prefix('api')
+  .middleware('auth:api')
+  .middleware('throttle:api')
+
+// Private API
+Route.group(() => {
+  // Semi-public routes for auth
+  Route.group(() => {
+    Route.post('/login', 'AuthController.login')
+    Route.post('/register', 'AuthController.register')
+    Route.post('/refresh', 'AuthController.refresh')
+  }).prefix('req')
+})
 
 // Private API
 Route.group(() => {
@@ -35,6 +47,7 @@ Route.group(() => {
 
     Route.post('/models', 'ModelsController.list')
     Route.post('/models/collection', 'ModelsController.listCollection')
+    Route.post('/models/favorites', 'ModelsController.listFavorites')
     Route.get('/models/:slug', 'ModelsController.single')
 
     Route.get('/blocks', 'BlocksController.list')
@@ -50,9 +63,10 @@ Route.group(() => {
 
     Route.get('/pages/application', 'StaticPagesController.applicationPC')
     Route.get('/pages/index/stats', 'ModelsController.statistics')
+    Route.get('/pages/static/:slug', 'StaticPagesController.get')
 
-    Route.post('/login', 'AuthController.login')
-    Route.post('/register', 'AuthController.register')
+    Route.get('/seo/models/:slug', 'SeosController.modelSEO')
+    Route.get('/localization', 'LocalizationsController.get')
   })
   // Admin only or Authorized users routes
   Route.group(() => {
@@ -70,6 +84,7 @@ Route.group(() => {
     Route.patch('/categories/filters', 'CategoryFiltersController.update')
     Route.delete('/categories/filters', 'CategoryFiltersController.delete')
 
+    Route.post('/models-admin', 'ModelsController.listAdminPanel')
     Route.put('/models', 'ModelsController.create')
     Route.patch('/models', 'ModelsController.update')
     Route.delete('/models', 'ModelsController.delete')
@@ -78,8 +93,23 @@ Route.group(() => {
     Route.patch('/blocks', 'BlocksController.update')
     Route.delete('/blocks', 'BlocksController.delete')
 
-    Route.post('/sync/supporters', 'SyncsController.syncSupporters')
-    Route.post('/sync/patrons', 'SyncsController.syncPatrons')
+    Route.post('/pages/static', 'StaticPagesController.list')
+    Route.put('/pages/static', 'StaticPagesController.create')
+    Route.patch('/pages/static', 'StaticPagesController.update')
+    Route.delete('/pages/static', 'StaticPagesController.delete')
+
+    Route.get('/subscriptions', 'SubscriptionsController.list')
+    Route.get('/subscriptions/:id', 'SubscriptionsController.single')
+    Route.put('/subscriptions', 'SubscriptionsController.create')
+    Route.patch('/subscriptions', 'SubscriptionsController.update')
+    Route.delete('/subscriptions', 'SubscriptionsController.delete')
+    Route.post('/subscriptions/sync', 'SubscriptionsController.sync')
+
+    Route.post('/subscribers', 'SubscriptionsController.listSubscribers')
+    Route.get('/subscribers/stats', 'SubscriptionsController.adminStats')
+
+    Route.get('/localization-admin', 'LocalizationsController.listAdmin')
+    Route.post('/localization-admin', 'LocalizationsController.update')
 
     Route.put('/posts', 'BlogsController.create')
     Route.patch('/posts', 'BlogsController.update')
@@ -110,5 +140,10 @@ Route.group(() => {
     Route.post('/api-keys', 'AuthController.listAPIKeys')
     Route.put('/api-keys', 'AuthController.generateNewKey')
     Route.delete('/api-keys', 'AuthController.revokeKey')
-  }).middleware('auth:web')
+  }).middleware('auth:jwt')
 }).prefix('req').middleware('protect')
+
+Route.group(() => {
+  Route.post('/craya', 'ModelsController.crayaExport')
+}).prefix('export')
+

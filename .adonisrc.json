@@ -23,7 +23,8 @@
         "web"
       ]
     },
-    "./start/bouncer"
+    "./start/bouncer",
+    "./start/limiter"
   ],
   "providers": [
     "./providers/AppProvider",
@@ -32,7 +33,11 @@
     "@adonisjs/drive-s3",
     "@adonisjs/auth",
     "@adonisjs/session",
-    "@adonisjs/bouncer"
+    "@adonisjs/bouncer",
+    "adonis5-jwt",
+    "adonis5-sentry",
+    "@adonisjs/limiter",
+    "@adonisjs/redis"
   ],
   "aceProviders": [
     "@adonisjs/repl"

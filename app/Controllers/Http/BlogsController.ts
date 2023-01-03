@@ -1,71 +1,31 @@
 import { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
-import { schema, rules, validator } from '@ioc:Adonis/Core/Validator'
-import Blog from 'App/Models/Blog'
+import { inject } from '@adonisjs/fold'
+import BlogsRepository from 'App/Repositories/BlogsRepository'
+import BlogsService from 'App/Services/BlogsService'
 
-import CreateBlogValidator from 'App/Validators/CreateBlogValidator'
-import UpdateBlogValidator from 'App/Validators/UpdateBlogValidator'
-import { BlogFull, BlogSimple } from 'Contracts/blog'
+import CreateBlogValidator from 'App/Validators/Blog/CreateBlogValidator'
+import UpdateBlogValidator from 'App/Validators/Blog/UpdateBlogValidator'
+import BasicPaginateValidator from 'App/Validators/Shared/BasicPaginateValidator'
+import PathSlugValidator from 'App/Validators/Shared/PathSlugValidator'
+import BodyIdValidator from 'App/Validators/Shared/BodyIdValidator'
 
+@inject()
 export default class BlogsController {
+  constructor (
+    public BlogsRepository: BlogsRepository,
+    public BlogsService: BlogsService
+  ) {}
+
   /**
    * Get posts list
    * @param ctx context
    * @returns posts list
    */
   public async list (ctx: HttpContextContract) {
-    const validateSchema = schema.create({
-      page: schema.number.optional(),
-      count: schema.number.optional(),
-    })
+    const payload = await ctx.request.validate(BasicPaginateValidator)
 
-    const headersValidateSchema = schema.create({
-      'x-meshhouse-language': schema.string.optional({}, [rules.language()]),
-    })
-
-    const payload = await ctx.request.validate({ schema: validateSchema })
-    const headers = await validator.validate({
-      schema: headersValidateSchema,
-      data: ctx.request.headers(),
-    })
-
-    const language = headers['x-meshhouse-language'] ?? null
-
-    const posts = await Blog
-      .query()
-      .preload('locales')
-      .select('id', 'slug', 'thumbnail', 'created_at', 'updated_at')
-      .paginate(payload.page || 1, payload.count || 10)
-
-    const serialized = posts.serialize({
-      relations: {
-        locales: {
-          fields: ['title_en', 'title_ru', 'excerpt_en', 'excerpt_ru'],
-        },
-      },
-    })
-
-    return {
-      pagination: {
-        total: serialized.meta.total,
-        current_page: serialized.meta.current_page,
-        last_page: serialized.meta.last_page,
-      },
-      items: serialized.data.map((item) => {
-        if (!language) {
-          item.title_en = item.locales.title_en
-          item.title_ru = item.locales.title_ru
-          item.excerpt_en = item.locales.excerpt_en
-          item.excerpt_ru = item.locales.excerpt_ru
-        } else {
-          item.title = item.locales[`title_${language}`]
-          item.excerpt = item.locales[`excerpt_${language}`]
-        }
-
-        delete item.locales
-
-        return item as BlogSimple
-      }),
-    }
+    const posts = await this.BlogsRepository.getList(payload)
+    return this.BlogsService.preparePosts(posts, ctx.xLanguage)
   }
   /**
    * Get single post
@@ -73,51 +33,10 @@ export default class BlogsController {
    * @returns post
    */
   public async single (ctx: HttpContextContract) {
-    const validateSchema = schema.create({
-      params: schema
-        .object()
-        .members({
-          slug: schema.string(),
-        }),
-    })
+    const payload = await ctx.request.validate(PathSlugValidator)
 
-    const headersValidateSchema = schema.create({
-      'x-meshhouse-language': schema.string.optional({}, [rules.language()]),
-    })
-
-    const payload = await ctx.request.validate({ schema: validateSchema })
-    const headers = await validator.validate({
-      schema: headersValidateSchema,
-      data: ctx.request.headers(),
-    })
-
-    const language = headers['x-meshhouse-language'] ?? null
-
-    const post = await Blog
-      .query()
-      .preload('locales')
-      .select('*')
-      .where({ slug: payload.params.slug })
-      .firstOrFail()
-
-    const item = post.toJSON()
-
-    if (!language) {
-      item.title_en = item.locales.title_en
-      item.title_ru = item.locales.title_ru
-      item.excerpt_en = item.locales.excerpt_en
-      item.excerpt_ru = item.locales.excerpt_ru
-      item.content_en = item.locales.content_en
-      item.content_ru = item.locales.content_ru
-    } else {
-      item.title = item.locales[`title_${language}`]
-      item.excerpt = item.locales[`excerpt_${language}`]
-      item.content = item.locales[`content_${language}`]
-    }
-
-    delete item.locales
-
-    return item as BlogFull
+    const post = await this.BlogsRepository.getBySlug(payload.params.slug)
+    return this.BlogsService.prepareSinglePost(post, ctx.xLanguage)
   }
   /**
    * Create post
@@ -128,21 +47,7 @@ export default class BlogsController {
     const payload = await ctx.request.validate(CreateBlogValidator)
     await ctx.bouncer.authorize('viewAdmin')
 
-    const blog = await Blog.create({
-      slug: payload.slug,
-      thumbnail: payload.thumbnail || null,
-    })
-
-    await blog.related('locales').create({
-      titleRu: payload.title_ru,
-      titleEn: payload.title_en,
-      excerptEn: payload.excerpt_en,
-      excerptRu: payload.excerpt_ru,
-      contentEn: payload.content_en,
-      contentRu: payload.content_ru,
-    })
-
-    return blog.id
+    return await this.BlogsService.create(payload)
   }
   /**
    * Update post
@@ -153,23 +58,8 @@ export default class BlogsController {
     const payload = await ctx.request.validate(UpdateBlogValidator)
     await ctx.bouncer.authorize('viewAdmin')
 
-    const blog = await Blog.findOrFail(payload.id)
-
-    blog.slug = payload.slug
-    blog.thumbnail = payload.thumbnail || null
-
-    await blog.related('locales').updateOrCreate({}, {
-      titleRu: payload.title_ru,
-      titleEn: payload.title_en,
-      excerptEn: payload.excerpt_en,
-      excerptRu: payload.excerpt_ru,
-      contentEn: payload.content_en,
-      contentRu: payload.content_ru,
-    })
-
-    await blog.save()
-
-    return blog.id
+    const post = await this.BlogsRepository.getById(payload.id)
+    return await this.BlogsService.update(post, payload)
   }
   /**
    * Delete post
@@ -177,21 +67,10 @@ export default class BlogsController {
    * @returns is deleted
    */
   public async delete (ctx: HttpContextContract) {
-    const validateSchema = schema.create({
-      id: schema.number(),
-    })
-
-    const payload = await ctx.request.validate({ schema: validateSchema })
+    const payload = await ctx.request.validate(BodyIdValidator)
     await ctx.bouncer.authorize('viewAdmin')
 
-    const blog = await Blog.findOrFail(payload.id)
-    await blog.related('locales')
-      .query()
-      .delete()
-      .where('id', payload.id)
-
-    await blog.delete()
-
-    return blog.$isDeleted
+    const blog = await this.BlogsRepository.getById(payload.id)
+    return await this.BlogsService.delete(blog)
   }
 }

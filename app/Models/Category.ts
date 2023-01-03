@@ -1,5 +1,12 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, hasMany, HasMany, HasOne, hasOne } from '@ioc:Adonis/Lucid/Orm'
+import {
+  BaseModel,
+  column,
+  ManyToMany,
+  manyToMany,
+  HasOne,
+  hasOne,
+} from '@ioc:Adonis/Lucid/Orm'
 import CategoryLocalization from 'App/Models/CategoryLocalization'
 import CategoryFilter from 'App/Models/CategoryFilter'
 
@@ -24,10 +31,14 @@ export default class Category extends BaseModel {
   })
   public locales: HasOne<typeof CategoryLocalization>
 
-  @hasMany(() => CategoryFilter, {
-    foreignKey: 'categoryId',
+  @manyToMany(() => CategoryFilter, {
+    localKey: 'id',
+    pivotForeignKey: 'category_id',
+    relatedKey: 'id',
+    pivotRelatedForeignKey: 'filter_id',
+    pivotTable: 'category_filters_pivot',
   })
-  public filters: HasMany<typeof CategoryFilter>
+  public filters: ManyToMany<typeof CategoryFilter>
 
   @column.dateTime({ autoCreate: true })
   public createdAt: DateTime

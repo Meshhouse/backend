@@ -1,6 +1,16 @@
-import { BaseModel, BelongsTo, belongsTo, column } from '@ioc:Adonis/Lucid/Orm'
+import {
+  BaseModel,
+  BelongsTo,
+  belongsTo,
+  column,
+} from '@ioc:Adonis/Lucid/Orm'
 import Model from 'App/Models/Model'
-import type { ModelRigging, ModelHairSystem, ModelTextures, ModelTexturesWrapping } from 'Contracts/Model'
+import type {
+  ModelRigging,
+  ModelHairSystem,
+  ModelTextures,
+  ModelTexturesWrapping,
+} from '@meshhouse/types'
 
 export default class ModelProperty extends BaseModel {
   public static table = 'models_properties'

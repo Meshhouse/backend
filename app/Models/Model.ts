@@ -15,7 +15,7 @@ import ModelLocalization from 'App/Models/ModelLocalization'
 import ModelFile from 'App/Models/ModelFile'
 import Collection from 'App/Models/Collection'
 import ModelCategoryFilter from 'App/Models/ModelCategoryFilter'
-import { ModelImage, ModelInstallPath } from 'Contracts/Model'
+import type { ModelImage, ModelInstallPath } from '@meshhouse/types'
 
 export default class Model extends BaseModel {
   @column({ isPrimary: true })
@@ -60,7 +60,19 @@ export default class Model extends BaseModel {
   @column()
   public status: number
 
-  @column()
+  @column({
+    prepare: (value: string[]) => {
+      return JSON.stringify(value)
+    },
+    consume: (value: string) => {
+      try {
+        const json = JSON.parse(value)
+        return json
+      } catch (error) {
+        return value
+      }
+    },
+  })
   public brands: string[]
 
   @column({

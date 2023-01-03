@@ -1,0 +1,5 @@
+import {{ name }} from 'App/Models/{{ name }}'
+
+export default class {{ filename }} {
+
+}

@@ -1,31 +1,54 @@
 import { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
-import { schema } from '@ioc:Adonis/Core/Validator'
-import User from 'App/Models/User'
-import ApiToken from 'App/Models/ApiToken'
-import CreateTokenValidator from 'App/Validators/CreateTokenValidator'
-import DeleteTokenValidator from 'App/Validators/DeleteTokenValidator'
+import { inject } from '@adonisjs/fold'
+import Hash from '@ioc:Adonis/Core/Hash'
+import AuthRepository from 'App/Repositories/AuthRepository'
+import AuthService from 'App/Services/AuthService'
+import LoginValidator from 'App/Validators/Auth/LoginValidator'
+import CreateUserValidator from 'App/Validators/Auth/CreateUserValidator'
+import UpdateUserValidator from 'App/Validators/Auth/UpdateUserValidator'
+import RegisterValidator from 'App/Validators/Auth/RegisterValidator'
+import RefreshUserValidator from 'App/Validators/Auth/RefreshUserValidator'
+import CreateTokenValidator from 'App/Validators/Auth/CreateTokenValidator'
+import DeleteTokenValidator from 'App/Validators/Auth/DeleteTokenValidator'
+import PathIdValidator from 'App/Validators/Shared/PathIdValidator'
+import BodyIdValidator from 'App/Validators/Shared/BodyIdValidator'
+import BasicPaginateValidator from 'App/Validators/Shared/BasicPaginateValidator'
 
-export default class ModelsController {
+@inject()
+export default class AuthController {
+  constructor (
+    public AuthRepository: AuthRepository,
+    public AuthService: AuthService
+  ) {}
+
   /**
    * Login user
    * @param ctx context
    * @returns login result
    */
   public async login (ctx: HttpContextContract) {
-    const validateSchema = schema.create({
-      email: schema.string(),
-      password: schema.string(),
-      rememberMe: schema.boolean.optional(),
-    })
+    const payload = await ctx.request.validate(LoginValidator)
+    const user = await this.AuthRepository.getByEmail(payload.email)
 
-    const payload = await ctx.request.validate({ schema: validateSchema })
-
-    try {
-      const result = await ctx.auth.use('web').attempt(payload.email, payload.password, payload.rememberMe)
-
-      return result
-    } catch (error) {
+    if (!(await Hash.verify(user.password, payload.password))) {
       return ctx.response.unauthorized('Invalid credentials')
+    }
+
+    const jwt = await ctx.auth.use('jwt').login(user)
+    return this.AuthService.getProfile(user, jwt)
+  }
+  /**
+   * Refresh user session via token
+   * @param ctx context
+   * @returns new tokens
+   */
+  public async refresh (ctx: HttpContextContract) {
+    const payload = await ctx.request.validate(RefreshUserValidator)
+
+    const jwt = await ctx.auth.use('jwt').loginViaRefreshToken(payload.refresh_token)
+    return {
+      access_token: jwt.accessToken,
+      refresh_token: jwt.refreshToken,
     }
   }
   /**
@@ -34,27 +57,16 @@ export default class ModelsController {
    * @returns success
    */
   public async register (ctx: HttpContextContract) {
-    const validateSchema = schema.create({
-      email: schema.string(),
-      password: schema.string(),
-      name: schema.string(),
-    })
-
-    const payload = await ctx.request.validate({ schema: validateSchema })
+    const payload = await ctx.request.validate(RegisterValidator)
 
     try {
-      await User.findByOrFail('email', payload.email)
-
+      await this.AuthRepository.getByEmail(payload.email)
       return ctx.response.unprocessableEntity('User already registered')
     } catch (error) {
-      await User.create({
-        email: payload.email,
-        password: payload.password,
-        name: payload.name,
+      return await this.AuthService.createUser({
+        ...payload,
         role: 'basic',
       })
-
-      return ctx.response.ok('Ok')
     }
   }
   /**
@@ -63,15 +75,11 @@ export default class ModelsController {
    * @returns user profile
    */
   public async profile (ctx: HttpContextContract) {
-    try {
-      const result = await User.findOrFail(ctx.auth.user?.id)
-
-      const user = result.toJSON()
-
-      delete user.remember_me_token
-      return user
-    } catch (error) {
-      return ctx.response.unauthorized('Invalid credentials')
+    if (!ctx.auth.user) {
+      ctx.response.unauthorized()
+    } else {
+      const user = await this.AuthRepository.getById(ctx.auth.user.id)
+      return this.AuthService.getProfileSimple(user)
     }
   }
   /**
@@ -81,8 +89,7 @@ export default class ModelsController {
    */
   public async logout (ctx: HttpContextContract) {
     try {
-      await ctx.auth.use('web').logout()
-
+      await ctx.auth.use('jwt').revoke()
       return true
     } catch (error) {
       return ctx.response.unauthorized('Invalid credentials')
@@ -96,32 +103,10 @@ export default class ModelsController {
   public async list (ctx: HttpContextContract) {
     await ctx.bouncer.allows('viewAdmin')
 
-    const validateSchema = schema.create({
-      page: schema.number.optional(),
-      count: schema.number.optional(),
-    })
+    const payload = await ctx.request.validate(BasicPaginateValidator)
+    const users = await this.AuthRepository.getPaginated(payload)
 
-    const payload = await ctx.request.validate({ schema: validateSchema })
-
-    const users = await User
-      .query()
-      .select('*')
-      .paginate(payload.page || 1, payload.count || 10)
-
-    const serialized = users.serialize()
-
-    return {
-      pagination: {
-        total: serialized.meta.total,
-        current_page: serialized.meta.current_page,
-        last_page: serialized.meta.last_page,
-      },
-      items: serialized.data.map((item) => {
-        delete item.remember_me_token
-
-        return item
-      }),
-    }
+    return this.AuthService.preparePaginatedUsers(users)
   }
   /**
    * Deletes user
@@ -131,92 +116,40 @@ export default class ModelsController {
   public async single (ctx: HttpContextContract) {
     await ctx.bouncer.allows('viewAdmin')
 
-    const validateSchema = schema.create({
-      params: schema
-        .object()
-        .members({
-          id: schema.number(),
-        }),
-    })
-
-    const payload = await ctx.request.validate({ schema: validateSchema })
-    const user = await User.findOrFail(payload.params.id)
+    const payload = await ctx.request.validate(PathIdValidator)
+    const user = await this.AuthRepository.getById(payload.params.id)
 
     return user
   }
   /**
-   * Register user
+   * Creates new user
    * @param ctx context
    * @returns success
    */
   public async create (ctx: HttpContextContract) {
-    const validateSchema = schema.create({
-      email: schema.string(),
-      password: schema.string(),
-      name: schema.string(),
-      role: schema.string(),
-    })
-
-    const payload = await ctx.request.validate({ schema: validateSchema })
+    const payload = await ctx.request.validate(CreateUserValidator)
 
     try {
-      await User.findByOrFail('email', payload.email)
-
+      await this.AuthRepository.getByEmail(payload.email)
       return ctx.response.unprocessableEntity('User already registered')
     } catch (error) {
-      await User.create({
-        email: payload.email,
-        password: payload.password,
-        name: payload.name,
-        role: payload.role,
-      })
-
-      return ctx.response.ok('')
+      return await this.AuthService.createUser(payload)
     }
   }
   /**
-   * Register user
+   * Updates user
    * @param ctx context
    * @returns success
    */
   public async update (ctx: HttpContextContract) {
-    const validateSchema = schema.create({
-      email: schema.string(),
-      password: schema.string.optional(),
-      name: schema.string(),
-      role: schema.string(),
-    })
-
-    const payload = await ctx.request.validate({ schema: validateSchema })
+    const payload = await ctx.request.validate(UpdateUserValidator)
 
     if (await ctx.bouncer.allows('viewAdmin')) {
-      const user = await User.findByOrFail('email', payload.email)
-      if (payload.password) {
-        user.password = payload.password
-      }
-      user.name = payload.name
-      user.role = payload.role
-
-      await user.save()
-
-      return ctx.response.ok('')
+      const user = await this.AuthRepository.getByEmail(payload.email)
+      return await this.AuthService.updateUser(user, payload, true)
     } else {
       const user = await ctx.auth.use('api')?.user
-      if (user) {
-        const dbUser = await User.findByOrFail('email', payload.email)
-        if (user?.id !== dbUser.id) {
-          return ctx.response.forbidden('Forbidden')
-        } else {
-          if (payload.password) {
-            dbUser.password = payload.password
-          }
-          dbUser.name = payload.name
-
-          await dbUser.save()
-
-          return ctx.response.ok('')
-        }
-      }
+      return await this.AuthService.updateUser(user, payload, false)
     }
   }
   /**
@@ -227,16 +160,10 @@ export default class ModelsController {
   public async deleteUser (ctx: HttpContextContract) {
     await ctx.bouncer.allows('viewAdmin')
 
-    const validateSchema = schema.create({
-      id: schema.number(),
-    })
+    const payload = await ctx.request.validate(BodyIdValidator)
+    const user = await this.AuthRepository.getById(payload.id)
 
-    const payload = await ctx.request.validate({ schema: validateSchema })
-
-    const user = await User.find(payload.id)
-    await user?.delete
-
-    return user?.$isDeleted
+    return await this.AuthService.deleteUser(user)
   }
   /**
    * Get API keys
@@ -244,45 +171,17 @@ export default class ModelsController {
    * @returns user API keys or all user keys (if admin)
    */
   public async listAPIKeys (ctx: HttpContextContract) {
-    try {
-      if (await ctx.bouncer.allows('viewAdmin')) {
-        const tokensRaw = await ApiToken
-          .query()
-          .select(
-            'api_tokens.id',
-            'users.name as userName',
-            'api_tokens.name',
-            'api_tokens.type',
-            'api_tokens.created_at'
-          )
-          .join('users', 'api_tokens.user_id', 'users.id')
+    if (await ctx.bouncer.allows('viewAdmin')) {
+      const tokens = await this.AuthRepository.getTokensForAdmin()
+      return this.AuthService.prepareApiTokens(tokens)
+    } else {
+      const user = ctx.auth.use('jwt')?.user
 
-        return tokensRaw.map((val) => {
-          return {
-            id: val.$original.id,
-            name: val.$original.name,
-            user_name: val.$extras.userName,
-            type: val.$original.type,
-            created_at: val.$original.createdAt,
-          }
-        })
+      if (user) {
+        return await this.AuthRepository.getTokens(user.id)
       } else {
-        const user = ctx.auth.use('web')?.user
-
-        if (user) {
-          const keys = await ApiToken
-            .query()
-            .select('*')
-            .where('user_id', user.id)
-
-          return keys
-        } else {
-          return ctx.response.unauthorized('Invalid credentials')
-        }
+        return ctx.response.unauthorized('Invalid credentials')
       }
-    } catch (error) {
-      console.error(error)
-      throw error
     }
   }
   /**
@@ -291,22 +190,17 @@ export default class ModelsController {
    * @returns API token result
    */
   public async generateNewKey (ctx: HttpContextContract) {
-    try {
-      const payload = await ctx.request.validate(CreateTokenValidator)
-      const user = await ctx.auth.use('web')?.user
+    const payload = await ctx.request.validate(CreateTokenValidator)
+    const user = await ctx.auth.use('jwt')?.user
 
-      if (user) {
-        const token = await ctx.auth.use('api').generate(user, {
-          name: payload.name,
-        })
+    if (user) {
+      const token = await ctx.auth.use('api').generate(user, {
+        name: payload.name,
+      })
 
-        return token
-      } else {
-        return ctx.response.unauthorized('Forbidden')
-      }
-    } catch (error) {
-      console.error(error)
-      throw error
+      return token
+    } else {
+      return ctx.response.unauthorized('Forbidden')
     }
   }
   /**
@@ -315,34 +209,15 @@ export default class ModelsController {
    * @returns is revoked
    */
   public async revokeKey (ctx: HttpContextContract) {
-    try {
-      const payload = await ctx.request.validate(DeleteTokenValidator)
+    const payload = await ctx.request.validate(DeleteTokenValidator)
+    const user = await ctx.auth.use('api')?.user
+    const isAdmin = await ctx.bouncer.allows('viewAdmin')
 
-      if (await ctx.bouncer.allows('viewAdmin')) {
-        const token = await ApiToken.find(payload.id)
-
-        if (token) {
-          await token.delete()
-
-          return ctx.response.ok('')
-        }
-      } else {
-        const user = await ctx.auth.use('api')?.user
-        if (user) {
-          const token = await ApiToken.find(payload.id)
-
-          if (token?.user_id !== user.id) {
-            return ctx.response.forbidden('Forbidden')
-          } else {
-            await token.delete()
-
-            return ctx.response.ok('')
-          }
-        }
-      }
-    } catch (error) {
-      console.error(error)
-      throw error
+    if (isAdmin || user) {
+      const token = await this.AuthRepository.getTokenById(payload.id)
+      return await this.AuthService.deleteToken(token, isAdmin, user)
+    } else {
+      return ctx.response.forbidden('Forbidden')
     }
   }
 }

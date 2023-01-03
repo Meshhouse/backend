@@ -3,14 +3,11 @@ import { BaseModel, column, hasOne, HasOne } from '@ioc:Adonis/Lucid/Orm'
 import CategoryFilterLocalization from 'App/Models/CategoryFilterLocalization'
 import type {
   CategoryFilterType,
-} from 'Contracts/category'
+} from '@meshhouse/types'
 
 export default class CategoryFilter extends BaseModel {
   @column({ isPrimary: true })
   public id: number
-
-  @column()
-  public category: number
 
   @column()
   public order: number
@@ -26,6 +23,20 @@ export default class CategoryFilter extends BaseModel {
 
   @column()
   public valueDelimeter: string | null
+
+  @column({
+    consume: (value: number) => {
+      return value === 1
+    },
+  })
+  public multipleValues: boolean
+
+  @column({
+    consume: (value: number) => {
+      return value === 1
+    },
+  })
+  public visible: boolean
 
   @column({
     prepare: (value: unknown[]) => {

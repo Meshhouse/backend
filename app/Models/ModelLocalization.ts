@@ -25,9 +25,33 @@ export default class ModelLocalization extends BaseModel {
   @column()
   public descriptionRu: string
 
-  @column()
+  @column({
+    prepare: (value: string[]) => {
+      return JSON.stringify(value)
+    },
+    consume: (value: string) => {
+      try {
+        const json = JSON.parse(value)
+        return json
+      } catch (error) {
+        return value
+      }
+    },
+  })
   public tagsEn: string[]
 
-  @column()
+  @column({
+    prepare: (value: string[]) => {
+      return JSON.stringify(value)
+    },
+    consume: (value: string) => {
+      try {
+        const json = JSON.parse(value)
+        return json
+      } catch (error) {
+        return value
+      }
+    },
+  })
   public tagsRu: string[]
 }

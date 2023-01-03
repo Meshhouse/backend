@@ -1,60 +1,88 @@
-// import { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
+import { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
 import Env from '@ioc:Adonis/Core/Env'
-import got from 'got'
+import { inject } from '@adonisjs/fold'
+import StaticPagesRepository from 'App/Repositories/StaticPagesRepository'
+import StaticPagesService from 'App/Services/StaticPagesService'
+import CreateStaticPageValidator from 'App/Validators/StaticPage/CreateStaticPageValidator'
+import UpdateStaticPageValidator from 'App/Validators/StaticPage/UpdateStaticPageValidator'
+import BasicPaginateValidator from 'App/Validators/Shared/BasicPaginateValidator'
+import PathSlugValidator from 'App/Validators/Shared/PathSlugValidator'
+import BodyIdValidator from 'App/Validators/Shared/BodyIdValidator'
 
+@inject()
 export default class StaticPagesController {
-  private GITHUB_TOKEN: string = Env.get('GITHUB_TOKEN')
-  private ASSET_MIN_SIZE: number = 7000000
-
+  constructor (
+    public StaticPagesRepository: StaticPagesRepository,
+    public StaticPagesService: StaticPagesService
+  ) {}
+  /**
+   * Handles github application page
+   * @returns
+   */
   public async applicationPC () {
-    if (!this.GITHUB_TOKEN) {
+    if (!Env.get('GITHUB_TOKEN')) {
       throw new Error('token not set')
     }
 
-    const response = (await got<any[]>('https://api.github.com/repos/longsightedfilms/meshhouse/releases', {
-      username: 'longsightedfilms',
-      password: process.env.GITHUB_TOKEN || '',
-      responseType: 'json',
-    })).body
+    const data = await this.StaticPagesRepository.getGithubPage()
+    return this.StaticPagesService.prepareGithubData(data)
+  }
+  /**
+   * Gets static pages list
+   * @param ctx context
+   * @returns static pages
+   */
+  public async list (ctx: HttpContextContract) {
+    await ctx.bouncer.allows('viewAdmin')
+    const payload = await ctx.request.validate(BasicPaginateValidator)
 
-    const lastDraft = response.find((item) => item.draft)
-    const lastRelease = response.find((item) => !item.draft)
+    const pages = await this.StaticPagesRepository.list(payload)
+    return this.StaticPagesService.prepareList(pages, ctx.xLanguage)
+  }
+  /**
+   * Gets single static page
+   * @param ctx context
+   * @returns static page
+   */
+  public async get (ctx: HttpContextContract) {
+    const payload = await ctx.request.validate(PathSlugValidator)
 
-    const draftReleaseVersion = lastDraft.tag_name.substr(1, lastDraft.tag_name.length)
-    const draftAssets = lastDraft.assets.filter((asset) => {
-      return asset.size > this.ASSET_MIN_SIZE
-    })
+    const page = await this.StaticPagesRepository.getBySlug(payload.params.slug)
+    return this.StaticPagesService.prepareSingle(page, ctx.xLanguage)
+  }
+  /**
+   * Creates static page
+   * @param ctx context
+   * @returns page id
+   */
+  public async create (ctx: HttpContextContract) {
+    await ctx.bouncer.allows('viewAdmin')
+    const payload = await ctx.request.validate(CreateStaticPageValidator)
 
-    const releaseVersion = lastRelease.tag_name.substr(1, lastRelease.tag_name.length)
-    const assets = lastRelease.assets.filter((asset) => {
-      return asset.size > this.ASSET_MIN_SIZE
-    })
+    return await this.StaticPagesService.createPage(payload)
+  }
+  /**
+   * Updates static page
+   * @param ctx context
+   * @returns page id
+   */
+  public async update (ctx: HttpContextContract) {
+    await ctx.bouncer.allows('viewAdmin')
+    const payload = await ctx.request.validate(UpdateStaticPageValidator)
 
-    const draftAssetLinux = draftAssets.find((asset) => asset.name.indexOf('.AppImage') !== -1)
-    const draftAssetWindows = draftAssets.find((asset) => asset.name.indexOf('.exe') !== -1)
-    const draftAssetMac = draftAssets.find((asset) => asset.name.indexOf('.dmg') !== -1)
+    const page = await this.StaticPagesRepository.getById(payload.id)
+    return await this.StaticPagesService.updatePage(page, payload)
+  }
+  /**
+   * Deletes static page
+   * @param ctx context
+   * @returns is deleted
+   */
+  public async delete (ctx: HttpContextContract) {
+    await ctx.bouncer.allows('viewAdmin')
+    const payload = await ctx.request.validate(BodyIdValidator)
 
-    const assetLinux = assets.find((asset) => asset.name.indexOf('.AppImage') !== -1)
-    const assetWindows = assets.find((asset) => asset.name.indexOf('.exe') !== -1)
-    const assetMac = assets.find((asset) => asset.name.indexOf('.dmg') !== -1)
-
-    return {
-      draft: {
-        version: draftReleaseVersion,
-        assets: {
-          windows: draftAssetWindows.browser_download_url,
-          mac: draftAssetMac.browser_download_url,
-          linux: draftAssetLinux.browser_download_url,
-        },
-      },
-      release: {
-        version: releaseVersion,
-        assets: {
-          windows: assetWindows.browser_download_url,
-          mac: assetMac.browser_download_url,
-          linux: assetLinux.browser_download_url,
-        },
-      },
-    }
+    const page = await this.StaticPagesRepository.getById(payload.id)
+    return await this.StaticPagesService.deletePage(page)
   }
 }

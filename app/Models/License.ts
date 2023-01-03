@@ -2,7 +2,7 @@ import { DateTime } from 'luxon'
 import { BaseModel, column, HasOne, hasOne } from '@ioc:Adonis/Lucid/Orm'
 import LicenseLocalization from 'App/Models/LicenseLocalization'
 
-import type { LicenseAccess } from 'Contracts/license'
+import type { LicenseAccess } from '@meshhouse/types'
 
 export default class License extends BaseModel {
   @column({ isPrimary: true })

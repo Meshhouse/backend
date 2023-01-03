@@ -1,0 +1,5 @@
+FROM node:lts-alpine
+WORKDIR /usr/src/app
+
+ENV NPM_CONFIG_LOGLEVEL verbose
+CMD ["sh", "-c", "npm install && cd ./build && node server.js"]

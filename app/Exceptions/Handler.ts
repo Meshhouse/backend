@@ -12,12 +12,18 @@
 | properly.
 |
 */
-
+import Sentry from '@ioc:Adonis/Addons/Sentry'
 import Logger from '@ioc:Adonis/Core/Logger'
 import HttpExceptionHandler from '@ioc:Adonis/Core/HttpExceptionHandler'
+import { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
 
 export default class ExceptionHandler extends HttpExceptionHandler {
   constructor () {
     super(Logger)
+  }
+
+  public async handle (error: any, ctx: HttpContextContract) {
+    Sentry.captureException(error)
+    return super.handle(error, ctx)
   }
 }

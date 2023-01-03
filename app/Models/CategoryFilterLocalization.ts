@@ -16,4 +16,16 @@ export default class CategoryFilterLocalization extends BaseModel {
 
   @column()
   public titleRu: string
+
+  @column()
+  public descriptionEn: string
+
+  @column()
+  public descriptionRu: string
+
+  @column()
+  public unitEn: string
+
+  @column()
+  public unitRu: string
 }
