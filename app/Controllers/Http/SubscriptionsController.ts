@@ -8,6 +8,7 @@ import Database from '@ioc:Adonis/Lucid/Database'
 import User from 'App/Models/User'
 import CreateSubscriptionValidator from 'App/Validators/CreateSubscriptionValidator'
 import UpdateSubscriptionValidator from 'App/Validators/UpdateSubscriptionValidator'
+import SyncSubscribersEmail from 'App/Mailers/SyncSubscribersEmail'
 
 @inject()
 export default class SubscriptionsController {
@@ -148,10 +149,17 @@ export default class SubscriptionsController {
       updated_subscriptions: 0,
       subscribed: 0,
       unsubscribed: 0,
+      total_subscribed: 0,
     }
 
     const boostyStats = await this.BoostyService.syncSubscriptions()
+    stats.fetched_subscriptions += boostyStats.fetched_subscriptions
+    stats.updated_subscriptions += boostyStats.updated_subscriptions
+    stats.subscribed += boostyStats.subscribed
+    stats.unsubscribed += boostyStats.unsubscribed
+    stats.total_subscribed += boostyStats.total_subscribed
 
+    await new SyncSubscribersEmail(stats).send()
     return stats
   }
   /**

@@ -1,0 +1,57 @@
+<mjml>
+  <mj-head>
+    <mj-font name="Jost" href="https://fonts.googleapis.com/css2?family=Jost:wght@700&display=swap" />
+    <mj-attributes>
+      <mj-text color="#ccc" />
+    </mj-attributes>
+    <mj-style inline="inline">
+      a {
+        color: #19b5fe;
+        text-decoration: none;
+      }
+    </mj-style>
+  </mj-head>
+
+  <mj-body background-color="#e0e0e0">
+    <mj-section background-color="#212121">
+      <mj-column>
+        <mj-image width="350px" src="cid:logo-header"></mj-image>
+      </mj-column>
+    </mj-section>
+
+    <mj-section background-color="#404040" padding-top="0px">
+      <mj-hero
+        background-width="600px"
+        background-height="600px"
+        background-url="cid:hero"
+        background-color="#000000"
+        padding="100px 0px"
+      >
+        @!section('hero')
+      </mj-hero>
+
+      @!section('body')
+    </mj-section>
+
+    <mj-section background-color="#212121">
+      <mj-column>
+        <mj-social icon-size="40px" mode="horizontal">
+          <mj-social-element name="github" href="https://github.com/Meshhouse"></mj-social-element>
+        </mj-social>
+        <mj-text align="center">
+          @if(requiredEmail)
+          You're receiving this email because you have been registered.
+          @else
+          You're receiving this email because you asked us about regular newsletter. <a href="#">Unsubscribe</a>
+          @end
+          <p>©{{ new Date().getFullYear() }} MeshHouse</p>
+        </mj-text>
+        <mj-social color="#19b5fe" icon-size="0px" mode="horizontal">
+          <mj-social-element href="#">All models</mj-social-element>
+          <mj-social-element href="#">API</mj-social-element>
+          <mj-social-element href="#">Desktop application</mj-social-element>
+        </mj-social>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

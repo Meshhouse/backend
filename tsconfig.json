@@ -37,7 +37,9 @@
       "adonis5-jwt",
       "adonis5-sentry",
       "@adonisjs/limiter",
-      "@adonisjs/redis"
+      "@adonisjs/redis",
+      "@adonisjs/mail",
+      "@adonisjs/view"
     ]
   }
 }

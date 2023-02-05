@@ -32,4 +32,8 @@ export default Env.rules({
   SITE_URL: Env.schema.string(),
   CRAYA_EXPORT_USER: Env.schema.string(),
   CRAYA_EXPORT_PASSWORD: Env.schema.string(),
+  SMTP_HOST: Env.schema.string(),
+  SMTP_PORT: Env.schema.string(),
+  SMTP_USERNAME: Env.schema.string(),
+  SMTP_PASSWORD: Env.schema.string(),
 })

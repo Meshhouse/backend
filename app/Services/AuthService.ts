@@ -5,6 +5,7 @@ import User from 'App/Models/User'
 import ApiToken from 'App/Models/ApiToken'
 import CreateUserValidator from 'App/Validators/Auth/CreateUserValidator'
 import UpdateUserValidator from 'App/Validators/Auth/UpdateUserValidator'
+import PasswordResetCode from 'App/Models/PasswordResetCode'
 import { Exception } from '@adonisjs/core/build/standalone'
 
 export default class AuthService {
@@ -105,7 +106,7 @@ export default class AuthService {
       role: payload.role,
     })
 
-    return user.id
+    return user
   }
   /**
    * Updates user
@@ -158,5 +159,23 @@ export default class AuthService {
 
     await token.delete()
     return token.$isDeleted
+  }
+  /**
+   * Resets user password
+   * @param user user
+   * @param password new password
+   * @param codeEntry reset password DB entry
+   * @returns is reseted password
+   */
+  public async resetPassword (
+    user: User,
+    password: string,
+    codeEntry: PasswordResetCode
+  ) {
+    user.password = password
+
+    await user.save()
+    await codeEntry.delete()
+    return user.$isPersisted
   }
 }

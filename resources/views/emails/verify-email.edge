@@ -1,0 +1,32 @@
+@layout('layouts/email')
+@section('hero')
+<mj-section>
+  <mj-column width="430px">
+    <mj-text
+      font-size="28px"
+      font-family="Jost, helvetica"
+      text-transform="uppercase"
+      color="#fff"
+      container-background-color="#19b5fe"
+      padding="10px 20px"
+    >
+      Welcome to MeshHouse, {{ user.name }}!
+    </mj-text>
+  </mj-column>
+</mj-section>
+@end
+
+@section('body')
+<mj-column width="100%" padding-top="20px">
+  <mj-text>To ensure you're legitimate and not some fake bot, please verify your account by clicking the button below.</mj-text>
+  <mj-button
+    href="{{ Env.get('SITE_URL') }}?signature={{ hash }}"
+    font-family="Jost, helvetica"
+    text-transform="uppercase"
+    background-color="#19b5fe"
+    border-radius="4px"
+  >
+    Verify my account
+  </mj-button>
+</mj-column>
+@end

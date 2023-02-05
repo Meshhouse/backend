@@ -1,5 +1,6 @@
 import { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
 import { inject } from '@adonisjs/fold'
+import { DateTime } from 'luxon'
 import Hash from '@ioc:Adonis/Core/Hash'
 import AuthRepository from 'App/Repositories/AuthRepository'
 import AuthService from 'App/Services/AuthService'
@@ -13,6 +14,14 @@ import DeleteTokenValidator from 'App/Validators/Auth/DeleteTokenValidator'
 import PathIdValidator from 'App/Validators/Shared/PathIdValidator'
 import BodyIdValidator from 'App/Validators/Shared/BodyIdValidator'
 import BasicPaginateValidator from 'App/Validators/Shared/BasicPaginateValidator'
+import VerifyEmail from 'App/Mailers/VerifyEmail'
+import EmailVerification from 'App/Models/EmailVerification'
+import VerifyEmailValidator from 'App/Validators/Auth/VerifyEmailValidator'
+import ResetPasswordValidator from 'App/Validators/Auth/ResetPasswordValidator'
+import PasswordResetCode from 'App/Models/PasswordResetCode'
+import ResetPasswordEmail from 'App/Mailers/ResetPasswordEmail'
+import ResetPasswordValidatorConfirm from 'App/Validators/Auth/ResetPasswordValidatorConfirm'
+import { generateNumericCode } from 'App/Utils/Number'
 
 @inject()
 export default class AuthController {
@@ -35,7 +44,14 @@ export default class AuthController {
     }
 
     const jwt = await ctx.auth.use('jwt').login(user)
-    return this.AuthService.getProfile(user, jwt)
+
+    const userProfile = this.AuthService.getProfile(user, jwt)
+
+    if (userProfile.role !== 'admin' && !userProfile.email_verified_at) {
+      return ctx.response.forbidden('Email not verified')
+    }
+
+    return userProfile
   }
   /**
    * Refresh user session via token
@@ -63,10 +79,20 @@ export default class AuthController {
       await this.AuthRepository.getByEmail(payload.email)
       return ctx.response.unprocessableEntity('User already registered')
     } catch (error) {
-      return await this.AuthService.createUser({
+      const user = await this.AuthService.createUser({
         ...payload,
         role: 'basic',
       })
+
+      const hash = await Hash.make(`${user.email}${new Date().valueOf()}`)
+      await EmailVerification.create({
+        id: user.id,
+        hash,
+        validUntil: DateTime.now().plus({ hours: 24 }),
+      })
+
+      await new VerifyEmail(user, hash).send()
+      return user.id
     }
   }
   /**
@@ -127,6 +153,8 @@ export default class AuthController {
    * @returns success
    */
   public async create (ctx: HttpContextContract) {
+    await ctx.bouncer.allows('viewAdmin')
+
     const payload = await ctx.request.validate(CreateUserValidator)
 
     try {
@@ -218,6 +246,96 @@ export default class AuthController {
       return await this.AuthService.deleteToken(token, isAdmin, user)
     } else {
       return ctx.response.forbidden('Forbidden')
+    }
+  }
+  /**
+   * Verifies user email
+   * @param ctx context
+   * @returns is verified or error
+   */
+  public async verifyEmail (ctx: HttpContextContract) {
+    const payload = await ctx.request.validate(VerifyEmailValidator)
+
+    const verifyEntry = await EmailVerification
+      .findByOrFail('hash', payload.signature)
+
+    if (DateTime.now() > verifyEntry.validUntil) {
+      return ctx.response.notFound('Signature has expired')
+    }
+
+    const user = await this.AuthRepository.getById(verifyEntry.id)
+
+    if (user.emailVerifiedAt) {
+      return ctx.response.created('Already verified')
+    }
+
+    user.emailVerifiedAt = DateTime.now()
+    await user.save()
+    await verifyEntry.delete()
+
+    return ctx.response.ok('')
+  }
+  /**
+   * Initiates reser user password
+   * @param ctx context
+   * @returns is initiated
+   */
+  public async startResetPassword (ctx: HttpContextContract) {
+    const payload = await ctx.request.validate(ResetPasswordValidator)
+
+    const user = await this.AuthRepository.getByEmail(payload.email)
+    try {
+      const codeEntry = await PasswordResetCode.findOrFail(user.id)
+
+      if (DateTime.now() > codeEntry.validUntil) {
+        throw new Error('Email has expired')
+      }
+
+      if (codeEntry.hasSended && !payload.force) {
+        return ctx.response.badRequest('Verification email has sended')
+      } else if (codeEntry.hasSended && payload.force) {
+        await new ResetPasswordEmail(user, codeEntry.code).send()
+        return ctx.response.created('')
+      }
+    } catch (error) {
+      const code = generateNumericCode(6)
+      await PasswordResetCode.create({
+        id: user.id,
+        code,
+        validUntil: DateTime.now().plus({ hours: 2 }),
+        hasSended: true,
+      })
+      await new ResetPasswordEmail(user, code).send()
+      return ctx.response.created('')
+    }
+  }
+  /**
+   * Handles reset password (second and final steps)
+   * @param ctx context
+   * @returns is reseted password or error
+   */
+  public async resetPassword (ctx: HttpContextContract) {
+    const payload = await ctx.request.validate(ResetPasswordValidatorConfirm)
+    const user = await this.AuthRepository.getByEmail(payload.email)
+    try {
+      const codeEntry = await PasswordResetCode.findOrFail(user.id)
+      const hasEqualCodes = codeEntry.code === payload.code
+
+      if (DateTime.now() > codeEntry.validUntil) {
+        return ctx.response.unauthorized('Invalid credentials')
+      }
+
+      if (!hasEqualCodes) {
+        return ctx.response.unauthorized('Invalid credentials')
+      } else {
+        if (payload.password) {
+          return await this.AuthService.resetPassword(user, payload.password, codeEntry)
+        } else {
+          return ctx.response.ok('')
+        }
+      }
+    } catch (error) {
+      return ctx.response.unauthorized('Invalid credentials')
     }
   }
 }

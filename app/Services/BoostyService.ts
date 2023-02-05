@@ -17,7 +17,7 @@ export default class BoostyService {
   private gotInstance = got.extend({
     prefixUrl: 'https://api.boosty.to/v1',
     headers: {
-      authorization: 'Bearer 3734a1dc455ff0caeaa267936e69bfa5ebef1db5b6f8cfd09f1fd776407f4d02',
+      authorization: 'Bearer 3b0cb617edba908408ff0754e9c7ab89c2daa8c183bc2c0e1c133076a8b21688',
     },
     responseType: 'json',
   })
@@ -105,6 +105,7 @@ export default class BoostyService {
         updated_subscriptions: 0,
         subscribed: 0,
         unsubscribed: 0,
+        total_subscribed: 0,
       }
 
       const availableSubscriptions = await Subscription
@@ -121,7 +122,6 @@ export default class BoostyService {
       const filteredSubscriptions = fetchedSubscriptions.filter((sub) => sub.email)
 
       stats.fetched_subscriptions = fetchedSubscriptions.length
-      console.log(filteredSubscriptions)
 
       const users = await User
         .query()
@@ -153,6 +153,8 @@ export default class BoostyService {
 
               stats.updated_subscriptions++
               stats.unsubscribed++
+            } else if (existSubscription && subscription.subscribed) {
+              stats.total_subscribed++
             }
           }
         }
@@ -161,8 +163,9 @@ export default class BoostyService {
       Logger.warn('Boosty sync completed')
       Logger.warn(`Fetched subscriptions: ${stats.fetched_subscriptions}`)
       Logger.warn(`Updated subscriptions: ${stats.updated_subscriptions}`)
-      Logger.warn(`Subscribed users: ${stats.subscribed}`)
+      Logger.warn(`New subscribed users: ${stats.subscribed}`)
       Logger.warn(`Unsubscribed users: ${stats.unsubscribed}`)
+      Logger.warn(`Total subscribed users: ${stats.total_subscribed}`)
 
       return stats
     } catch (error) {

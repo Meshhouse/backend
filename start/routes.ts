@@ -21,6 +21,9 @@ Route.group(() => {
     Route.get('/licenses', 'LicensesController.list')
 
     Route.get('/autocomplete', 'SearchesController.autocomplete')
+
+    Route.post('/statistics/models', 'StatisticsController.modelStatistics')
+    Route.post('/statistics/model-single', 'StatisticsController.singleModelStatistics')
   }).prefix('/v1')
 }).prefix('api')
   .middleware('auth:api')
@@ -33,6 +36,9 @@ Route.group(() => {
     Route.post('/login', 'AuthController.login')
     Route.post('/register', 'AuthController.register')
     Route.post('/refresh', 'AuthController.refresh')
+    Route.post('/verify-email', 'AuthController.verifyEmail')
+    Route.post('/reset-password', 'AuthController.startResetPassword')
+    Route.post('/reset-password-confirm', 'AuthController.resetPassword')
   }).prefix('req')
 })
 
@@ -67,6 +73,12 @@ Route.group(() => {
 
     Route.get('/seo/models/:slug', 'SeosController.modelSEO')
     Route.get('/localization', 'LocalizationsController.get')
+
+    Route.post('/statistics/models', 'StatisticsController.modelStatistics')
+    Route.post('/statistics/model-single', 'StatisticsController.singleModelStatistics')
+    Route.put('/statistics/models/like', 'StatisticsController.like')
+    Route.put('/statistics/models/view', 'StatisticsController.viewModel')
+    Route.put('/statistics/models/download', 'StatisticsController.downloadModel')
   })
   // Admin only or Authorized users routes
   Route.group(() => {
@@ -143,7 +155,7 @@ Route.group(() => {
   }).middleware('auth:jwt')
 }).prefix('req').middleware('protect')
 
-Route.group(() => {
+/*Route.group(() => {
   Route.post('/craya', 'ModelsController.crayaExport')
-}).prefix('export')
+}).prefix('export')*/
 
