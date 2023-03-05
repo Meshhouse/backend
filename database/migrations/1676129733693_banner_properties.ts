@@ -1,14 +1,13 @@
 import BaseSchema from '@ioc:Adonis/Lucid/Schema'
 
 export default class extends BaseSchema {
-  protected tableName = 'model_view_statistics'
+  protected tableName = 'banner_properties'
 
   public async up () {
     this.schema.createTable(this.tableName, (table) => {
-      table.increments('id')
-      table.integer('model_id').unsigned().references('models.id').onDelete('CASCADE')
-      table.string('uid').notNullable()
-      table.timestamp('created_at', { useTz: true })
+      table.integer('id').unsigned().references('banners.id').onDelete('CASCADE')
+      table.string('page').nullable().defaultTo(null)
+      table.integer('category').nullable().defaultTo(null)
     })
   }
 

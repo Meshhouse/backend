@@ -40,7 +40,8 @@
     "@adonisjs/limiter",
     "@adonisjs/redis",
     "@adonisjs/mail",
-    "@adonisjs/view"
+    "@adonisjs/view",
+    "adonisjs-hcaptcha"
   ],
   "aceProviders": [
     "@adonisjs/repl"

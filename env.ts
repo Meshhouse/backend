@@ -36,4 +36,6 @@ export default Env.rules({
   SMTP_PORT: Env.schema.string(),
   SMTP_USERNAME: Env.schema.string(),
   SMTP_PASSWORD: Env.schema.string(),
+  HCAPTCHA_SECRET_KEY: Env.schema.string.optional(),
+  HCAPTCHA_SITE_KEY: Env.schema.string.optional(),
 })

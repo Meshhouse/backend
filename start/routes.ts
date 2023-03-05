@@ -10,6 +10,8 @@ Route.group(() => {
 
     Route.post('/models', 'ModelsController.list')
     Route.post('/models/collection', 'ModelsController.listCollection')
+    Route.get('/models/similar/:slug', 'SimilarModelConfigsController.listSimilarModels')
+    Route.get('/models/accessories/:slug', 'AccessoryModelConfigsController.listModelAccessories')
     Route.get('/models/:slug', 'ModelsController.single')
 
     Route.get('/blocks', 'BlocksController.list')
@@ -33,8 +35,8 @@ Route.group(() => {
 Route.group(() => {
   // Semi-public routes for auth
   Route.group(() => {
-    Route.post('/login', 'AuthController.login')
-    Route.post('/register', 'AuthController.register')
+    Route.post('/login', 'AuthController.login').middleware('hcaptcha')
+    Route.post('/register', 'AuthController.register').middleware('hcaptcha')
     Route.post('/refresh', 'AuthController.refresh')
     Route.post('/verify-email', 'AuthController.verifyEmail')
     Route.post('/reset-password', 'AuthController.startResetPassword')
@@ -53,6 +55,8 @@ Route.group(() => {
 
     Route.post('/models', 'ModelsController.list')
     Route.post('/models/collection', 'ModelsController.listCollection')
+    Route.get('/models/similar/:slug', 'SimilarModelConfigsController.listSimilarModels')
+    Route.get('/models/accessories/:slug', 'AccessoryModelConfigsController.listModelAccessories')
     Route.post('/models/favorites', 'ModelsController.listFavorites')
     Route.get('/models/:slug', 'ModelsController.single')
 
@@ -72,6 +76,7 @@ Route.group(() => {
     Route.get('/pages/static/:slug', 'StaticPagesController.get')
 
     Route.get('/seo/models/:slug', 'SeosController.modelSEO')
+    Route.get('/seo/banners', 'BannersController.getForPage')
     Route.get('/localization', 'LocalizationsController.get')
 
     Route.post('/statistics/models', 'StatisticsController.modelStatistics')
@@ -79,6 +84,8 @@ Route.group(() => {
     Route.put('/statistics/models/like', 'StatisticsController.like')
     Route.put('/statistics/models/view', 'StatisticsController.viewModel')
     Route.put('/statistics/models/download', 'StatisticsController.downloadModel')
+
+    Route.get('/settings', 'ConfigurationsController.list')
   })
   // Admin only or Authorized users routes
   Route.group(() => {
@@ -152,6 +159,24 @@ Route.group(() => {
     Route.post('/api-keys', 'AuthController.listAPIKeys')
     Route.put('/api-keys', 'AuthController.generateNewKey')
     Route.delete('/api-keys', 'AuthController.revokeKey')
+
+    Route.get('/settings/groups', 'ConfigurationsController.listGroups')
+    Route.put('/settings', 'ConfigurationsController.create')
+    Route.patch('/settings', 'ConfigurationsController.update')
+    Route.delete('/settings', 'ConfigurationsController.delete')
+
+    Route.post('/tweaks/similar-models', 'SimilarModelConfigsController.get')
+    Route.put('/tweaks/similar-models', 'SimilarModelConfigsController.create')
+    Route.patch('/tweaks/similar-models', 'SimilarModelConfigsController.update')
+
+    Route.post('/tweaks/model-accessories', 'AccessoryModelConfigsController.get')
+    Route.put('/tweaks/model-accessories', 'AccessoryModelConfigsController.create')
+    Route.patch('/tweaks/model-accessories', 'AccessoryModelConfigsController.update')
+
+    Route.post('/banners', 'BannersController.list')
+    Route.put('/banners', 'BannersController.create')
+    Route.patch('/banners', 'BannersController.update')
+    Route.delete('/banners', 'BannersController.delete')
   }).middleware('auth:jwt')
 }).prefix('req').middleware('protect')
 

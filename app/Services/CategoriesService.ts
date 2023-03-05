@@ -177,9 +177,15 @@ export default class CategoriesService {
     categoryFilters.push(...block.content.sort((a, b) => a.order - b.order).map((item) => {
       if (language) {
         item.title = item[`title_${language}`]
+        item.description = item[`description_${language}`]
+        item.unit = item[`unit_${language}`]
 
         delete item.title_en
         delete item.title_ru
+        delete item.description_en
+        delete item.description_ru
+        delete item.unit_en
+        delete item.unit_ru
       }
 
       if (item.type !== 'range') {
@@ -214,8 +220,14 @@ export default class CategoriesService {
         if (!language) {
           item.title_en = item.locales.title_en
           item.title_ru = item.locales.title_ru
+          item.description_en = item.locales.description_en
+          item.description_ru = item.locales.description_ru
+          item.unit_en = item.locales.unit_en
+          item.unit_ru = item.locales.unit_ru
         } else {
           item.title = item.locales[`title_${language}`]
+          item.description = item.locales[`description_${language}`]
+          item.unit = item.locales[`unit_${language}`]
         }
 
         delete item.locales
@@ -245,5 +257,28 @@ export default class CategoriesService {
     }
 
     return categoryFilters
+  }
+  /**
+   * Prepares category for model accessories
+   * @param category category
+   * @param language language
+   * @returns prepared category
+   */
+  public prepareForAccessories (category: Category, language: string | null) {
+    const item = category.toJSON()
+    const categorySerialized: Record<string, number | string | boolean> = {
+      id: category.id,
+      slug: item.slug,
+      href: `/models/${item.slug}`,
+    }
+
+    if (!language) {
+      categorySerialized.title_en = item.locales.title_en
+      categorySerialized.title_ru = item.locales.title_ru
+    } else {
+      categorySerialized.title = item.locales[`title_${language}`]
+    }
+
+    return categorySerialized
   }
 }

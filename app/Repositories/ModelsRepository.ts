@@ -1,6 +1,10 @@
 import Database from '@ioc:Adonis/Lucid/Database'
 import Model from 'App/Models/Model'
 import ListModelValidator from 'App/Validators/Model/ListModelValidator'
+import type {
+  AccessoryModelFilter,
+  SimilarModelFilter,
+} from '@meshhouse/types'
 
 export default class ModelsRepository {
   /**
@@ -244,7 +248,8 @@ export default class ModelsRepository {
       .preload('locales', (localesQuery) => {
         localesQuery.select('rowid', '*')
       })
-      .select('id', 'slug', 'mature_content', 'thumbnail', 'created_at', 'updated_at')
+      .select('id', 'slug', 'mature_content', 'brands', 'thumbnail', 'created_at', 'updated_at')
+      .where('status', 1)
       .where((query) => {
         if (matureContent === false || matureContent === null) {
           query.where('mature_content', false)
@@ -282,5 +287,102 @@ export default class ModelsRepository {
       .select('id', 'slug', 'status', 'mature_content', 'brands', 'thumbnail', 'created_at', 'updated_at')
       .where('status', 1)
       .whereIn('id', ids)
+  }
+  /**
+   * Get similar models
+   * @param model original model
+   * @param conditions similarity conditions
+   * @returns similar models
+   */
+  public async getSimilar (model: Model, conditions: SimilarModelFilter[][]) {
+    return Model
+      .query()
+      .preload('category')
+      .preload('properties')
+      .preload('files')
+      .preload('locales', (localesQuery) => {
+        localesQuery.select('rowid', '*')
+      })
+      .preload('filters')
+      .select('id', 'slug', 'status', 'mature_content', 'brands', 'thumbnail', 'created_at', 'updated_at')
+      .where('status', 1)
+      .leftJoin('models_localizations', 'models_localizations.rowid', 'models.id')
+      .whereHas('category', (query) => {
+        query.whereIn('category_model.category_id', [model.category[0].id])
+      })
+      .where((query) => {
+        if (!model.matureContent) {
+          query.where('mature_content', false)
+        }
+      })
+      .whereNot('id', model.id)
+      .whereHas('filters', (query) => {
+        conditions.map((condition, idx) => {
+          condition.map((filter) => {
+            let currentModelValue: any = model.filters.find((val) => val.filterId === filter.filter_id)?.value
+            const filterValue: any = filter.value
+
+            if (filter.operand === 'between') {
+              currentModelValue = parseFloat(currentModelValue)
+              query.andWhereRaw(`exists (select * from 'model_category_filters' where 'model_category_filters'.'filter_id' = ${filter.filter_id} and 'model_category_filters'.'value' between ${currentModelValue - filterValue} and ${currentModelValue + filterValue} and model_category_filters.model_id = models.id)`)
+            } else {
+              query.andWhereRaw(`exists (select * from 'model_category_filters' where 'model_category_filters'.'filter_id' = ${filter.filter_id} and 'model_category_filters'.'value' = ${currentModelValue} and model_category_filters.model_id = models.id)`)
+            }
+          })
+        })
+      })
+      .limit(10)
+  }
+  /**
+   * Get model accessories
+   * @param model original model
+   * @param category category id
+   * @param conditions accessories conditions
+   * @returns model accessories
+   */
+  public async getAccessories (model: Model, category: number, conditions: AccessoryModelFilter[]) {
+    return Model
+      .query()
+      .preload('category')
+      .preload('properties')
+      .preload('files')
+      .preload('locales', (localesQuery) => {
+        localesQuery.select('rowid', '*')
+      })
+      .preload('filters')
+      .select('id', 'slug', 'status', 'mature_content', 'brands', 'thumbnail', 'created_at', 'updated_at')
+      .where('status', 1)
+      .leftJoin('models_localizations', 'models_localizations.rowid', 'models.id')
+      .whereHas('category', (query) => {
+        query.whereIn('category_model.category_id', [category])
+      })
+      .where((query) => {
+        if (!model.matureContent) {
+          query.where('mature_content', false)
+        }
+      })
+      .whereNot('id', model.id)
+      .whereHas('filters', (query) => {
+        conditions.map((filter) => {
+          let currentModelValue: any = model.filters.find((val) => val.filterId === filter.filter_id)?.value
+          const filterValue: any = filter.value
+
+          if (filter.operand === 'between') {
+            currentModelValue = parseFloat(currentModelValue)
+            query.andWhereRaw(`exists (select * from 'model_category_filters' where 'model_category_filters'.'filter_id' = ${filter.filter_id} and 'model_category_filters'.'value' between ${currentModelValue - filterValue} and ${currentModelValue + filterValue} and model_category_filters.model_id = models.id)`)
+          } else {
+            if (filter.mapper === false) {
+              currentModelValue = filter.value
+            } else {
+              // @TODO make filter mapper
+            }
+
+            if (currentModelValue !== undefined) {
+              query.andWhereRaw(`exists (select * from 'model_category_filters' where 'model_category_filters'.'filter_id' = ${filter.filter_id} and 'model_category_filters'.'value' = '${currentModelValue}' and model_category_filters.model_id = models.id)`)
+            }
+          }
+        })
+      })
+      .limit(10)
   }
 }

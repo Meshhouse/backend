@@ -141,6 +141,7 @@ export default class ModelsService {
       delete item.files
       delete item.filters
       delete item.brands
+      delete item.status
 
       return item as ModelSimple
     })
@@ -274,34 +275,6 @@ export default class ModelsService {
     delete serialized.category.locales
 
     return serialized as ModelFull
-  }
-  public prepareModelsForSearch (
-    models: Model[],
-    language: string | null
-  ) {
-    return models.map((model) => {
-      const item = model.toJSON()
-      if (!language) {
-        item.title_en = item.locales.title_en
-        item.title_ru = item.locales.title_ru
-      } else {
-        item.title = item.locales[`title_${language}`]
-      }
-
-      item.category = item.category[0].slug
-
-      item.available_formats = []
-
-      item.files.map((file) => {
-        if (!item.available_formats.includes(file.program)) {
-          item.available_formats.push(file.program)
-        }
-      })
-
-      delete item.locales
-      delete item.files
-      return item as ModelSimple
-    })
   }
   /**
    * Creates new model

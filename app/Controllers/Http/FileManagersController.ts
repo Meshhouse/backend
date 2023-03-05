@@ -176,8 +176,8 @@ export default class FileManagersController {
     await ctx.bouncer.authorize('viewAdmin')
 
     try {
-      const backblaze = Drive.use('backblaze')
-      await backblaze.delete(payload.path)
+      const s3 = Drive.use('s3')
+      await s3.delete(payload.path)
 
       return true
     } catch (error) {

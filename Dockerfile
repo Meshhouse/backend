@@ -1,4 +1,5 @@
 FROM node:lts-alpine
+RUN apk add git
 WORKDIR /home/meshhouse/backend
 
 ENV NPM_CONFIG_LOGLEVEL verbose

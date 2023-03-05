@@ -93,7 +93,7 @@ export default driveConfig({
     |**************************************************************************
     |
     */
-    backblaze: {
+    s3: {
       driver: 's3',
       visibility: 'public',
       key: Env.get('S3_KEY'),

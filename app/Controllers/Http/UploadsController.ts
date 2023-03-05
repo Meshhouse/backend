@@ -19,6 +19,7 @@ export default class UploadsController {
     'featured_category',
     'post_thumbnail',
     'site_supporter',
+    'banner',
   ]
 
   public async upload (ctx: HttpContextContract) {
@@ -37,12 +38,10 @@ export default class UploadsController {
         return await Drive.getUrl(`integrations/${payload.binary.fileName}`)
       }
       case 'model_image': {
-        const result = await this.ImageService.makeModelImage(payload.binary, payload.filename)
-        return result
+        return await this.ImageService.makeModelImage(payload.binary, payload.filename)
       }
       case 'thumbnail': {
-        const result = await this.ImageService.makeModelPreviewImage(payload.binary, payload.filename)
-        return result
+        return await this.ImageService.makeModelPreviewImage(payload.binary, payload.filename)
       }
       case 'model_3d_preview': {
         await payload.binary.moveToDisk('./previews')
@@ -63,6 +62,9 @@ export default class UploadsController {
       case 'site_supporter': {
         await payload.binary.moveToDisk('./site-supporters')
         return await Drive.getUrl(`site-supporters/${payload.binary.fileName}`)
+      }
+      case 'banner': {
+        return await this.ImageService.makeBannerImage(payload.binary, payload.filename)
       }
       default: {
         return ctx.response.unprocessableEntity('upload type is invalid')
@@ -85,7 +87,7 @@ export default class UploadsController {
 
     if (payload.binary.tmpPath) {
       try {
-        const backblaze = Drive.use('backblaze')
+        const s3 = Drive.use('s3')
         const uploadedFile = await fs.readFile(payload.binary.tmpPath)
 
         let fullPath = `${payload.path}${payload.binary.clientName}`
@@ -93,7 +95,7 @@ export default class UploadsController {
           fullPath = fullPath.substring(1)
         }
 
-        await backblaze.put(fullPath, uploadedFile, {
+        await s3.put(fullPath, uploadedFile, {
           contentType: payload.binary.headers['content-type'],
           contentDisposition: payload.binary.headers['content-disposition'],
         })

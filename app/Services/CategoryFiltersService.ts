@@ -18,8 +18,14 @@ export default class CategoryFiltersService {
       if (!language) {
         item.title_en = item.locales.title_en
         item.title_ru = item.locales.title_ru
+        item.description_en = item.locales.description_en
+        item.description_ru = item.locales.description_ru
+        item.unit_en = item.locales.unit_en
+        item.unit_ru = item.locales.unit_ru
       } else {
         item.title = item.locales[`title_${language}`]
+        item.description = item.locales[`description_${language}`]
+        item.unit = item.locales[`unit_${language}`]
       }
 
       delete item.locales

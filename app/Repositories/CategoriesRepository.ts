@@ -43,4 +43,29 @@ export default class CategoriesRepository {
       .where({ id })
       .firstOrFail()
   }
+  /**
+   * Gets category by slug
+   * @param slug slug
+   * @returns category
+   */
+  public async getBySlug (slug: string) {
+    return Category
+      .query()
+      .preload('locales')
+      .select('*')
+      .where('slug', slug)
+      .firstOrFail()
+  }
+  /**
+   * Gets categories by ids
+   * @param id id
+   * @returns categories
+   */
+  public async getByIds (ids: number[]) {
+    return Category
+      .query()
+      .preload('locales')
+      .select('*')
+      .whereIn('id', ids)
+  }
 }

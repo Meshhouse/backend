@@ -23,7 +23,7 @@ export default class SearchesController {
     const models = await this.ModelsRepository.getForAutocomplete(ctx.xMatureContent, escapedQuery)
 
     return {
-      models: this.ModelsService.prepareModelsForSearch(models, ctx.xLanguage),
+      models: this.ModelsService.prepareModelsFavorite(models, ctx.xLanguage),
     }
   }
 }

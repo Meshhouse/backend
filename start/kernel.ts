@@ -46,4 +46,5 @@ Server.middleware.registerNamed({
   auth: () => import('App/Middleware/Auth'),
   protect: () => import('App/Middleware/Protect'),
   throttle: () => import('@adonisjs/limiter/build/throttle'),
+  hcaptcha: () => import('App/Middleware/Hcaptcha'),
 })

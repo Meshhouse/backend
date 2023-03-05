@@ -50,8 +50,6 @@ export const { actions } = Bouncer
   .define('subscriberAction', (
     user: User
   ) => {
-    console.log(user)
-
     if (user.role === 'admin') {
       return true
     }

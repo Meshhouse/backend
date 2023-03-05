@@ -1,8 +1,20 @@
+/* eslint-disable max-len */
 import { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
 import { schema } from '@ioc:Adonis/Core/Validator'
-import Configuration from 'App/Models/Configuration'
+import { inject } from '@adonisjs/fold'
+import ConfigurationsRepository from 'App/Repositories/ConfigurationsRepository'
+import ConfigurationService from 'App/Services/ConfigurationService'
+import CreateConfigurationValidator from 'App/Validators/Configuration/CreateConfigurationValidator'
+import UpdateConfigurationValidator from 'App/Validators/Configuration/UpdateConfigurationValidator'
+import BodyIdValidator from 'App/Validators/Shared/BodyIdValidator'
 
+@inject()
 export default class ConfigurationsController {
+  constructor (
+    public ConfigurationsRepository: ConfigurationsRepository,
+    public ConfigurationService: ConfigurationService,
+  ) { }
+
   /**
    * Gets all settings
    * @param ctx context
@@ -14,26 +26,56 @@ export default class ConfigurationsController {
     })
 
     const payload = await ctx.request.validate({ schema: validateSchema })
+    const configs = await this.ConfigurationsRepository.list(payload.group)
 
-    const configs = await Configuration
-      .query()
-      .select('*')
-      .where((query) => {
-        if (payload.group) {
-          query.whereColumn('group', payload.group)
-        }
-      })
-
-    return configs
+    return this.ConfigurationService.prepare(configs)
   }
+  /**
+   * Gets all settings groups
+   * @param ctx context
+   * @returns settings groups
+   */
+  public async listGroups (ctx: HttpContextContract) {
+    await ctx.bouncer.authorize('viewAdmin')
+    return await this.ConfigurationsRepository.listGroups()
+  }
+  /**
+   * Creates new config
+   * @param ctx context
+   * @returns is created
+   */
+  public async create (ctx: HttpContextContract) {
+    const payload: CreateConfigurationValidator['schema']['props'] & { value?: unknown } = await ctx.request.validate(CreateConfigurationValidator)
+    payload.value = ctx.request.body().value
+    await ctx.bouncer.authorize('viewAdmin')
 
-  public async getValue (key: string) {
-    const config = await Configuration.findBy('key', key)
+    return await this.ConfigurationService.create(payload)
+  }
+  /**
+   * Updates config
+   * @param ctx context
+   * @returns is updated
+   */
+  public async update (ctx: HttpContextContract) {
+    const payload: UpdateConfigurationValidator['schema']['props'] & { value?: unknown } = await ctx.request.validate(UpdateConfigurationValidator)
+    payload.value = ctx.request.body().value
+    await ctx.bouncer.authorize('viewAdmin')
 
-    if (config) {
-      return config.value
-    } else {
-      throw new Error('config not found')
-    }
+    const config = await this.ConfigurationsRepository.get(payload.id)
+
+    return await this.ConfigurationService.update(config, payload)
+  }
+  /**
+   * Deletes config
+   * @param ctx context
+   * @returns is deleted
+   */
+  public async delete (ctx: HttpContextContract) {
+    const payload = await ctx.request.validate(BodyIdValidator)
+    await ctx.bouncer.authorize('viewAdmin')
+
+    const config = await this.ConfigurationsRepository.get(payload.id)
+
+    return await this.ConfigurationService.delete(config)
   }
 }

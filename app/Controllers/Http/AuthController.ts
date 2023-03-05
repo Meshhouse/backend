@@ -1,4 +1,5 @@
 import { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
+import { Limiter } from '@adonisjs/limiter/build/services'
 import { inject } from '@adonisjs/fold'
 import { DateTime } from 'luxon'
 import Hash from '@ioc:Adonis/Core/Hash'
@@ -22,6 +23,8 @@ import PasswordResetCode from 'App/Models/PasswordResetCode'
 import ResetPasswordEmail from 'App/Mailers/ResetPasswordEmail'
 import ResetPasswordValidatorConfirm from 'App/Validators/Auth/ResetPasswordValidatorConfirm'
 import { generateNumericCode } from 'App/Utils/Number'
+import Logger from '@ioc:Adonis/Core/Logger'
+import got from 'got'
 
 @inject()
 export default class AuthController {
@@ -36,22 +39,40 @@ export default class AuthController {
    * @returns login result
    */
   public async login (ctx: HttpContextContract) {
-    const payload = await ctx.request.validate(LoginValidator)
-    const user = await this.AuthRepository.getByEmail(payload.email)
+    if (ctx.hcaptcha.success) {
+      const payload = await ctx.request.validate(LoginValidator)
+      const throttleKey = `login_${payload.email}_${ctx.request.ip()}`
 
-    if (!(await Hash.verify(user.password, payload.password))) {
-      return ctx.response.unauthorized('Invalid credentials')
+      const limiter = Limiter.use({
+        requests: 10,
+        duration: '15 mins',
+        blockDuration: '30 mins',
+      })
+
+      if (await limiter.isBlocked(throttleKey)) {
+        return ctx.response.tooManyRequests('Login attempts exhausted. Please try after some time')
+      }
+
+      const user = await this.AuthRepository.getByEmail(payload.email)
+
+      if (!(await Hash.verify(user.password, payload.password))) {
+        await limiter.increment(throttleKey)
+        return ctx.response.unauthorized('Invalid credentials')
+      }
+
+      const jwt = await ctx.auth.use('jwt').login(user)
+
+      const userProfile = this.AuthService.getProfile(user, jwt)
+
+      if (userProfile.role !== 'admin' && !userProfile.email_verified_at) {
+        return ctx.response.forbidden('Email not verified')
+      }
+
+      await limiter.delete(throttleKey)
+      return userProfile
+    } else {
+      return ctx.response.forbidden('')
     }
-
-    const jwt = await ctx.auth.use('jwt').login(user)
-
-    const userProfile = this.AuthService.getProfile(user, jwt)
-
-    if (userProfile.role !== 'admin' && !userProfile.email_verified_at) {
-      return ctx.response.forbidden('Email not verified')
-    }
-
-    return userProfile
   }
   /**
    * Refresh user session via token
@@ -73,26 +94,43 @@ export default class AuthController {
    * @returns success
    */
   public async register (ctx: HttpContextContract) {
-    const payload = await ctx.request.validate(RegisterValidator)
+    if (ctx.hcaptcha.success) {
+      const payload = await ctx.request.validate(RegisterValidator)
 
-    try {
-      await this.AuthRepository.getByEmail(payload.email)
-      return ctx.response.unprocessableEntity('User already registered')
-    } catch (error) {
-      const user = await this.AuthService.createUser({
-        ...payload,
-        role: 'basic',
-      })
+      try {
+        await this.AuthRepository.getByEmail(payload.email)
+        return ctx.response.unprocessableEntity('User already registered')
+      } catch (error) {
+        // Check for "bottable" email
+        try {
+          const verifyResponse = (await got<any>(`https://api.mailcheck.ai/email/${payload.email}`, {
+            responseType: 'json',
+          })).body
 
-      const hash = await Hash.make(`${user.email}${new Date().valueOf()}`)
-      await EmailVerification.create({
-        id: user.id,
-        hash,
-        validUntil: DateTime.now().plus({ hours: 24 }),
-      })
+          if (verifyResponse.status === 200 && verifyResponse.disposable === true) {
+            return ctx.response.unprocessableEntity('Possibly bot email detected')
+          }
+        } catch (error) {
+          Logger.warn(`Email check for ${payload.email} has been failed`)
+        }
 
-      await new VerifyEmail(user, hash).send()
-      return user.id
+        const user = await this.AuthService.createUser({
+          ...payload,
+          role: 'basic',
+        })
+
+        const hash = await Hash.make(`${user.email}${new Date().valueOf()}`)
+        await EmailVerification.create({
+          id: user.id,
+          hash,
+          validUntil: DateTime.now().plus({ hours: 24 }),
+        })
+
+        await new VerifyEmail(user, hash).send()
+        return user.id
+      }
+    } else {
+      return ctx.response.forbidden('')
     }
   }
   /**
