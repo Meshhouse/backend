@@ -1,6 +1,6 @@
 FROM node:lts-alpine
 RUN apk add git
-WORKDIR /usr/src/app
+WORKDIR /home/meshhouse/backend
 
 ENV NPM_CONFIG_LOGLEVEL verbose
 CMD ["sh", "-c", "npm install && cd ./build && node server.js"]
