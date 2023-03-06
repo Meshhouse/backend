@@ -3,4 +3,4 @@ RUN apk add git
 WORKDIR /home/meshhouse/backend
 
 ENV NPM_CONFIG_LOGLEVEL verbose
-CMD ["sh", "-c", "npm install && cd ./build && node server.js"]
+CMD ["sh", "-c", "cd ./build && node server.js"]
