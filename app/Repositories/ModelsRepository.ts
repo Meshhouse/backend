@@ -317,7 +317,7 @@ export default class ModelsRepository {
       })
       .whereNot('id', model.id)
       .whereHas('filters', (query) => {
-        conditions.map((condition, idx) => {
+        conditions.map((condition) => {
           condition.map((filter) => {
             let currentModelValue: any = model.filters.find((val) => val.filterId === filter.filter_id)?.value
             const filterValue: any = filter.value

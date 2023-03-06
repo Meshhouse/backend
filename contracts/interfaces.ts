@@ -1,5 +1,4 @@
 import { MultipartFileContract } from '@ioc:Adonis/Core/BodyParser'
-import { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
 import { ModelQueryBuilderContract } from '@ioc:Adonis/Lucid/Orm'
 import type {
   ImageUploadOutput,
