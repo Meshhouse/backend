@@ -1,11 +1,12 @@
 import { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
+import Logger from '@ioc:Adonis/Core/Logger'
+import { Limiter } from '@adonisjs/limiter/build/services'
 import { DateTime } from 'luxon'
 import { HmacSHA512, enc } from 'crypto-js'
 import Env from '@ioc:Adonis/Core/Env'
-// import isbot from 'isbot'
+import isbot from 'isbot'
 
 export default class ProtectMiddleware {
-  protected allowedOrigins = ['https://meshhouse.art', 'http://localhost:8080', 'http://localhost:3000', 'https://cp.meshhouse.art']
   /**
    * Basic private API protection
    * @param ctx
@@ -17,23 +18,44 @@ export default class ProtectMiddleware {
     next: () => Promise<void>
   ) {
     const headers = ctx.request.headers()
+    const host = ctx.request.host()
     const currentUrl = ctx.request.url()
     const currentMethod = ctx.request.method()
 
-    let currentTime = Math.round(DateTime.utc().toSeconds())
-    currentTime = Math.round(currentTime / 10) * 10
+    const timestamp = headers['x-meshhouse-ts']?.toString() || ''
+    const currentTime = DateTime.utc().toUnixInteger()
 
-    const message = `${headers['user-agent']}${currentUrl}${currentMethod}${currentTime}`
+    const limiter = Limiter.use({
+      requests: 5,
+      duration: '15 mins',
+      blockDuration: '30 mins',
+    })
+
+    const throttleKey = `hmac_${headers['user-agent']}${host}${currentMethod}${currentUrl}${headers['x-meshhouse-ts']}_${ctx.request.ip()}`
+
+    if (await limiter.isBlocked(throttleKey)) {
+      Logger.warn(`Blocked request from ${ctx.request.ip()} ${headers['user-agent']} to ${currentMethod} ${currentUrl}`)
+      return ctx.response.tooManyRequests('Too many requests')
+    }
+    // Creates message which we want to get from request
+    const message = `${headers['user-agent']}${host}${currentMethod}${currentUrl}${headers['x-meshhouse-ts']}`
     const expectedKey = HmacSHA512(message, Env.get('API_SECRET_KEY')).toString(enc.Base64url)
-
+    // Is valid signatures
     const isValidAuthKey = headers['x-meshhouse-authentication'] === expectedKey
-    // const isValidOrigin = headers.origin && this.allowedOrigins.includes(headers.origin)
-    // const isBotUA = !headers['user-agent'] || isbot(headers['user-agent'])
+    // Is timestamp not expired
+    const isTimestampNotExpired = currentTime - parseInt(timestamp) <= 60
+    // Is bot user agent
+    const isBotUA = headers['user-agent']?.toLocaleLowerCase().includes('meshhouse')
+      ? false
+      : isbot(headers['user-agent'])
 
-    if (!isValidAuthKey) {
+    if (!isValidAuthKey || !isTimestampNotExpired || isBotUA) {
+      Logger.warn(`Blocked request from ${ctx.request.ip()} ${headers['user-agent']} to ${currentMethod} ${currentUrl}`)
+      await limiter.increment(throttleKey)
       return ctx.response.forbidden('Forbidden')
     }
 
+    await limiter.delete(throttleKey)
     await next()
   }
 }
